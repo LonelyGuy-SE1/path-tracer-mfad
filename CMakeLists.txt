@@ -114,3 +114,13 @@ target_include_directories(test_basis_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/stages
     ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )
+
+# Test executable for intersections
+add_executable(test_intersections_runner tests/test_intersections.cpp)
+target_link_libraries(test_intersections_runner PRIVATE
+    mfad_core
+    Eigen3::Eigen
+)
+target_include_directories(test_intersections_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+)
