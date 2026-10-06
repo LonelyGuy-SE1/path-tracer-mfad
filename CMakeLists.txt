@@ -56,26 +56,20 @@ include_directories(
 )
 
 # Project targets
-# mfad_stages: pure linear algebra modules (Eigen only)
-file(GLOB_RECURSE STAGES_SOURCES "stages/*.cpp")
-if(NOT STAGES_SOURCES)
-    set(STAGES_SOURCES "stages/stage_empty.cpp")
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/stages_dummy.cpp" "// dummy\n")
-    set(STAGES_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/stages_dummy.cpp")
-endif()
-add_library(mfad_stages STATIC ${STAGES_SOURCES})
-target_link_libraries(mfad_stages PUBLIC Eigen3::Eigen)
-target_include_directories(mfad_stages PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/stages)
-
 # mfad_trace: trace logging library
 file(GLOB_RECURSE TRACE_SOURCES "trace/*.cpp")
-if(NOT TRACE_SOURCES)
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/trace_dummy.cpp" "// dummy\n")
-    set(TRACE_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/trace_dummy.cpp")
-endif()
 add_library(mfad_trace STATIC ${TRACE_SOURCES})
 target_link_libraries(mfad_trace PUBLIC Eigen3::Eigen nlohmann_json::nlohmann_json)
 target_include_directories(mfad_trace PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/trace)
+
+# mfad_stages: pure linear algebra modules (Eigen only)
+file(GLOB_RECURSE STAGES_SOURCES "stages/*.cpp")
+add_library(mfad_stages STATIC ${STAGES_SOURCES})
+target_link_libraries(mfad_stages PUBLIC Eigen3::Eigen mfad_trace)
+target_include_directories(mfad_stages PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
 
 # mfad_core: renderer core library
 file(GLOB_RECURSE CORE_SOURCES "core/*.cpp")
@@ -105,4 +99,16 @@ target_link_libraries(path_tracer PRIVATE
     mfad_trace
     Eigen3::Eigen
     OpenMP::OpenMP_CXX
+)
+
+# Test executable for stage_basis
+add_executable(test_basis_runner tests/test_basis.cpp)
+target_link_libraries(test_basis_runner PRIVATE
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+)
+target_include_directories(test_basis_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )

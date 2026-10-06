@@ -26,3 +26,6 @@ venv/
 *.hdr
 *.exr
 *.trace.bin
+*.trace.json
+trace_*.json
+*.png
