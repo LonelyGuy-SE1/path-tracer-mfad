@@ -1,0 +1,51 @@
+name: Lint & Format Checks
+
+on:
+  push:
+    branches: [main, init]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python Linters & Formatters
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Check Python Code Formatting (Ruff)
+        run: |
+          ruff format --check .
+
+      - name: Check Python Linting (Ruff)
+        run: |
+          ruff check .
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-format
+
+      - name: Check C++ Code Formatting (clang-format)
+        run: |
+          CPP_FILES=$(find core stages trace tests -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.cc" -o -name "*.c" \) 2>/dev/null || true)
+          if [ -n "$CPP_FILES" ]; then
+            echo "Checking formatting for:"
+            echo "$CPP_FILES"
+            echo "$CPP_FILES" | xargs clang-format --dry-run --Werror
+          else
+            echo "No C++ files found to check yet."
+          fi
