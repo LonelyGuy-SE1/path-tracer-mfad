@@ -63,14 +63,14 @@ int main() {
     scene.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(0.0f, -0.25f, -0.5f), 0.25f,
                                              Eigen::Vector3f(0.95f, 0.75f, 0.15f)));
 
-    // Camera setup overlooking scene
+    // Camera setup: positioned so horizon is at mid-screen and sky is clearly visible
     const int width = 640;
     const int height = 360;
     mfad::ImageBuffer image(width, height);
-    mfad::Camera camera(Eigen::Vector3f(0.0f, 0.9f, 1.7f),     // Eye
-                        Eigen::Vector3f(0.0f, -0.05f, -1.0f),  // Look-at
-                        Eigen::Vector3f(0.0f, 1.0f, 0.0f),     // Up
-                        50.0f,                                 // Vertical FOV
+    mfad::Camera camera(Eigen::Vector3f(0.0f, 0.4f, 2.2f),   // Eye
+                        Eigen::Vector3f(0.0f, 0.0f, -1.0f),  // Look-at
+                        Eigen::Vector3f(0.0f, 1.0f, 0.0f),   // Up
+                        45.0f,                               // Vertical FOV
                         static_cast<float>(width) / static_cast<float>(height));
 
     // Directional key light for flat/diffuse shading
@@ -88,15 +88,26 @@ int main() {
             Eigen::Vector3f pixel_col;
 
             if (scene.hit(ray, 0.001f, 1000.0f, rec)) {
+                // Base color: checkerboard grid for floor plane, solid color for spheres
+                Eigen::Vector3f base_color = rec.color;
+                if (std::abs(rec.normal.y() - 1.0f) < 1e-3f) {
+                    float scale = 2.0f;
+                    int cx = static_cast<int>(std::floor(rec.point.x() * scale));
+                    int cz = static_cast<int>(std::floor(rec.point.z() * scale));
+                    bool check = ((cx + cz) % 2 + 2) % 2 == 0;
+                    base_color = check ? Eigen::Vector3f(0.85f, 0.85f, 0.88f)
+                                       : Eigen::Vector3f(0.40f, 0.40f, 0.45f);
+                }
+
                 // Shading: ambient + diffuse Lambertian (n . l)
                 float n_dot_l = std::max(0.0f, rec.normal.dot(light_dir));
                 float intensity = 0.25f + 0.75f * n_dot_l;
-                pixel_col = intensity * rec.color;
+                pixel_col = intensity * base_color;
             } else {
-                // Background sky gradient
+                // Background sky gradient from white (horizon) to deep sky blue
                 float t = 0.5f * (ray.direction.y() + 1.0f);
                 pixel_col = (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) +
-                            t * Eigen::Vector3f(0.6f, 0.75f, 1.0f);
+                            t * Eigen::Vector3f(0.35f, 0.65f, 1.0f);
             }
 
             image.set_pixel(x, y, pixel_col);
