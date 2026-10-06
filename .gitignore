@@ -1,1 +1,28 @@
 .nottracked
+
+# C++ Build & Output Artifacts
+build/
+bin/
+out/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+
+# Python Cache & Tool Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Rendering / Trace test artifacts
+*.hdr
+*.exr
+*.trace.bin
