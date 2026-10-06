@@ -88,6 +88,8 @@ target_link_libraries(mfad_core PUBLIC
 )
 target_include_directories(mfad_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+)
+target_include_directories(mfad_core SYSTEM PUBLIC
     ${stb_SOURCE_DIR}
 )
 
