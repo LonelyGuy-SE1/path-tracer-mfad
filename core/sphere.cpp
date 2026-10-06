@@ -1,11 +1,13 @@
 #include "sphere.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace mfad {
 
-Sphere::Sphere(const Eigen::Vector3f& center, float radius, const Eigen::Vector3f& color)
-    : center_(center), radius_(radius), color_(color) {}
+Sphere::Sphere(const Eigen::Vector3f& center, float radius, const Eigen::Vector3f& color,
+               std::shared_ptr<Material> material)
+    : center_(center), radius_(radius), color_(color), material_(std::move(material)) {}
 
 bool Sphere::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const {
     Eigen::Vector3f oc = r.origin - center_;
@@ -32,6 +34,7 @@ bool Sphere::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const {
     Eigen::Vector3f outward_normal = (rec.point - center_) / radius_;
     rec.set_face_normal(r, outward_normal.normalized());
     rec.color = color_;
+    rec.material = material_.get();
     return true;
 }
 

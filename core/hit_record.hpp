@@ -3,8 +3,11 @@
 #include "ray.hpp"
 
 #include <Eigen/Dense>
+#include <memory>
 
 namespace mfad {
+
+class Material;
 
 /**
  * @brief Stores ray-surface intersection information.
@@ -15,6 +18,7 @@ struct HitRecord {
     Eigen::Vector3f normal{0.0f, 1.0f, 0.0f};
     bool front_face{true};
     Eigen::Vector3f color{1.0f, 1.0f, 1.0f};
+    const Material* material{nullptr};
 
     inline void set_face_normal(const Ray& r, const Eigen::Vector3f& outward_normal) {
         front_face = r.direction.dot(outward_normal) < 0.0f;
