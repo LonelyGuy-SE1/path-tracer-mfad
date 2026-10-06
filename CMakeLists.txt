@@ -103,6 +103,9 @@ target_link_libraries(path_tracer PRIVATE
     OpenMP::OpenMP_CXX
 )
 
+# Testing configuration
+enable_testing()
+
 # Test executable for stage_basis
 add_executable(test_basis_runner tests/test_basis.cpp)
 target_link_libraries(test_basis_runner PRIVATE
@@ -114,6 +117,7 @@ target_include_directories(test_basis_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/stages
     ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )
+add_test(NAME test_basis COMMAND test_basis_runner)
 
 # Test executable for intersections
 add_executable(test_intersections_runner tests/test_intersections.cpp)
@@ -124,3 +128,4 @@ target_link_libraries(test_intersections_runner PRIVATE
 target_include_directories(test_intersections_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/core
 )
+add_test(NAME test_intersections COMMAND test_intersections_runner)
