@@ -1,5 +1,7 @@
 #include "camera.hpp"
 
+#include "stage_basis.hpp"
+
 #include <cmath>
 
 namespace mfad {
@@ -13,17 +15,12 @@ Camera::Camera(const Eigen::Vector3f& look_from, const Eigen::Vector3f& look_at,
     float half_height = std::tan(theta / 2.0f);
     float half_width = aspect_ratio * half_height;
 
-    // Orthonormal camera frame with guard for up parallel to look direction
-    w_ = (look_from - look_at).normalized();
-    Eigen::Vector3f u_cross = up.cross(w_);
-    if (u_cross.squaredNorm() < 1e-6f) {
-        // Fallback reference axis when looking straight along up direction
-        Eigen::Vector3f alt_up = (std::abs(w_.z()) < 0.9f) ? Eigen::Vector3f(0.0f, 0.0f, 1.0f)
-                                                           : Eigen::Vector3f(1.0f, 0.0f, 0.0f);
-        u_cross = alt_up.cross(w_);
-    }
-    u_ = u_cross.normalized();
-    v_ = w_.cross(u_);
+    // Use stage_basis_camera (#11) to construct orthonormal camera frame Q in double precision
+    BasisResult basis =
+        stage_basis_camera(look_from.cast<double>(), look_at.cast<double>(), up.cast<double>());
+    u_ = basis.right().cast<float>();
+    v_ = basis.up().cast<float>();
+    w_ = basis.forward().cast<float>();
 
     horizontal_ = 2.0f * half_width * u_;
     vertical_ = 2.0f * half_height * v_;

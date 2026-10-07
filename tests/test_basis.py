@@ -59,3 +59,44 @@ def test_trace_basis_json():
         assert checks["roundtrip_is_identity"] is True
         assert checks["QtQ_error"] < 1e-12
         assert checks["roundtrip_error"] < 1e-12
+
+
+def camera_basis_numpy(look_from: np.ndarray, look_at: np.ndarray, up: np.ndarray) -> np.ndarray:
+    """NumPy reference implementation of camera Gram-Schmidt orthonormal basis."""
+    view = look_from - look_at
+    if np.linalg.norm(view) < 1e-12:
+        view = np.array([0.0, 0.0, 1.0])
+    w = view / np.linalg.norm(view)
+    u_cross = np.cross(up, w)
+    if np.linalg.norm(u_cross) < 1e-12:
+        alt_up = np.array([0.0, 0.0, 1.0]) if abs(w[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+        u_cross = np.cross(alt_up, w)
+    u = u_cross / np.linalg.norm(u_cross)
+    v = np.cross(w, u)
+    return np.column_stack([u, v, w])
+
+
+def test_camera_basis_properties():
+    """Verify camera frame orthonormality and singularity fallback."""
+    Q = camera_basis_numpy(
+        np.array([0.0, 0.0, 5.0]), np.array([0.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+    )
+    assert np.allclose(Q.T @ Q, np.eye(3), atol=1e-12)
+    assert np.isclose(np.linalg.det(Q), 1.0, atol=1e-12)
+
+    # Test singularity: look parallel to up
+    Q_sing = camera_basis_numpy(
+        np.array([0.0, 5.0, 0.0]), np.array([0.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+    )
+    assert np.allclose(Q_sing.T @ Q_sing, np.eye(3), atol=1e-12)
+    assert np.isclose(np.linalg.det(Q_sing), 1.0, atol=1e-12)
+
+    # Random cameras
+    rng = np.random.default_rng(123)
+    for _ in range(50):
+        eye = rng.standard_normal(3)
+        target = rng.standard_normal(3)
+        up_vec = np.array([0.0, 1.0, 0.0])
+        Q_rand = camera_basis_numpy(eye, target, up_vec)
+        assert np.allclose(Q_rand.T @ Q_rand, np.eye(3), atol=1e-12)
+        assert np.isclose(np.linalg.det(Q_rand), 1.0, atol=1e-12)
