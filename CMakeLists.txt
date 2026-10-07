@@ -129,3 +129,18 @@ target_include_directories(test_intersections_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/core
 )
 add_test(NAME test_intersections COMMAND test_intersections_runner)
+
+# Test executable for materials (Issue #25)
+add_executable(test_materials_runner tests/test_materials.cpp)
+target_link_libraries(test_materials_runner PRIVATE
+    mfad_core
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+)
+target_include_directories(test_materials_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_materials COMMAND test_materials_runner)
