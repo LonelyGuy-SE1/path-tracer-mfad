@@ -1,102 +1,83 @@
-import json
-import os
+from pathlib import Path
+from prep.trace import load_trace
 
-import numpy as np
-import pytest
+TRACE_PATH = Path("trace_basis.json")
 
-
-def duff_basis_numpy(normal: np.ndarray) -> np.ndarray:
-    """NumPy reference implementation of Duff et al. (2017) orthonormal basis."""
+def gram_schmidt_numpy(normal: np.ndarray, guide: np.ndarray) -> np.ndarray:
+    """NumPy reference for stage_basis_gram_schmidt.
+    The tangent is the guide projected onto the plane orthogonal to n, written here with the
+    projector (I - n n^T) so it does not share code with the C++ subtraction form.
+    """
     n = normal / np.linalg.norm(normal)
-    sign = np.copysign(1.0, n[2])
-    a = -1.0 / (sign + n[2])
-    f = n[0] * n[1] * a
-    t = np.array([1.0 + sign * n[0] * n[0] * a, sign * f, -sign * n[0]])
-    b = np.array([f, sign + n[1] * n[1] * a, -n[1]])
+    proj_plane = np.eye(3) - np.outer(n, n)
+    u = proj_plane @ guide
+    if u @ u < 1e-12:
+        fallback = np.array([0.0, 1.0, 0.0]) if abs(n[0]) > 0.9 else np.array([1.0, 0.0, 0.0])
+        u = proj_plane @ fallback
+    t = u / np.linalg.norm(u)
+    b = np.cross(n, t)
     return np.column_stack([t, b, n])
 
-
-def test_duff_basis_properties():
-    """Verify orthonormality and right-handedness over unit sphere."""
-    rng = np.random.default_rng(42)
+def test_gram_schmidt_reference_properties():
+    rng = np.random.default_rng(7)
+    guide = np.array([0.0, 1.0, 0.0])
     for _ in range(200):
-        v = rng.standard_normal(3)
-        n = v / np.linalg.norm(v)
-        Q = duff_basis_numpy(n)
-
-        # 1. Orthogonality: Q^T * Q = I
-        QtQ = Q.T @ Q
-        assert np.allclose(QtQ, np.eye(3), atol=1e-12)
-
-        # 2. Right-handed: det(Q) = 1
-        det = np.linalg.det(Q)
-        assert np.isclose(det, 1.0, atol=1e-12)
-
-        # 3. Third column is the normal
-        assert np.allclose(Q[:, 2], n, atol=1e-12)
-
-        # 4. Round-trip coordinate transformation
-        v_local = rng.standard_normal(3)
-        v_world = Q @ v_local
-        v_rec = Q.T @ v_world
-        assert np.allclose(v_rec, v_local, atol=1e-12)
-
-
-def test_trace_basis_json():
-    """Verify generated trace JSON checks if file exists."""
-    trace_path = "trace_basis.json"
-    if not os.path.exists(trace_path):
-        pytest.skip(f"{trace_path} not generated yet.")
-
-    with open(trace_path) as f:
-        records = json.load(f)
-
-    for rec in records:
-        assert rec["stage"] == "basis"
-        checks = rec["checks"]
-        assert checks["QtQ_is_identity"] is True
-        assert checks["det_is_one"] is True
-        assert checks["roundtrip_is_identity"] is True
-        assert checks["QtQ_error"] < 1e-12
-        assert checks["roundtrip_error"] < 1e-12
-
-
-def camera_basis_numpy(look_from: np.ndarray, look_at: np.ndarray, up: np.ndarray) -> np.ndarray:
-    """NumPy reference implementation of camera Gram-Schmidt orthonormal basis."""
-    view = look_from - look_at
-    if np.linalg.norm(view) < 1e-12:
-        view = np.array([0.0, 0.0, 1.0])
-    w = view / np.linalg.norm(view)
-    u_cross = np.cross(up, w)
-    if np.linalg.norm(u_cross) < 1e-12:
-        alt_up = np.array([0.0, 0.0, 1.0]) if abs(w[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
-        u_cross = np.cross(alt_up, w)
-    u = u_cross / np.linalg.norm(u_cross)
-    v = np.cross(w, u)
-    return np.column_stack([u, v, w])
-
-
-def test_camera_basis_properties():
-    """Verify camera frame orthonormality and singularity fallback."""
-    Q = camera_basis_numpy(
-        np.array([0.0, 0.0, 5.0]), np.array([0.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
-    )
+        n = rng.standard_normal(3)
+        Q = gram_schmidt_numpy(n, guide)
+        assert np.allclose(Q.T @ Q, np.eye(3), atol=1e-12)
+        assert np.isclose(np.linalg.det(Q), 1.0, atol=1e-12)
+        assert np.allclose(Q[:, 2], n / np.linalg.norm(n), atol=1e-12)
+    # guide parallel to the normal takes the fallback axis and must still be a valid frame
+    Q = gram_schmidt_numpy(np.array([0.0, 2.0, 0.0]), guide)
     assert np.allclose(Q.T @ Q, np.eye(3), atol=1e-12)
     assert np.isclose(np.linalg.det(Q), 1.0, atol=1e-12)
 
-    # Test singularity: look parallel to up
-    Q_sing = camera_basis_numpy(
-        np.array([0.0, 5.0, 0.0]), np.array([0.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
-    )
-    assert np.allclose(Q_sing.T @ Q_sing, np.eye(3), atol=1e-12)
-    assert np.isclose(np.linalg.det(Q_sing), 1.0, atol=1e-12)
 
-    # Random cameras
-    rng = np.random.default_rng(123)
-    for _ in range(50):
-        eye = rng.standard_normal(3)
-        target = rng.standard_normal(3)
-        up_vec = np.array([0.0, 1.0, 0.0])
-        Q_rand = camera_basis_numpy(eye, target, up_vec)
-        assert np.allclose(Q_rand.T @ Q_rand, np.eye(3), atol=1e-12)
-        assert np.isclose(np.linalg.det(Q_rand), 1.0, atol=1e-12)
+def _load_basis_records():
+    if not TRACE_PATH.exists():
+        if os.environ.get("MFAD_REQUIRE_TRACE"):
+            pytest.fail(f"{TRACE_PATH} missing; run test_basis_runner first")
+        pytest.skip(f"{TRACE_PATH} not generated yet.")
+    records = load_trace(TRACE_PATH)
+    assert records, "trace has no records"
+    return records
+
+
+def test_trace_basis_checks():
+    """Every logged frame carries passing invariant checks."""
+    for rec in _load_basis_records():
+
+
+def test_trace_duff_matches_numpy_reference():
+    """C++ Duff frames equal the NumPy reference for the same input normal."""
+    records = [r for r in _load_basis_records() if r["name"].startswith("duff_sample_")]
+    assert len(records) >= 1000
+    worst = 0.0
+    for rec in records:
+        q = rec["array"]
+        assert q.shape == (3, 3)
+        ref = duff_basis_numpy(np.asarray(rec["checks"]["input_normal"], dtype=float))
+        worst = max(worst, float(np.abs(q - ref).max()))
+        assert np.allclose(q, ref, atol=1e-12, rtol=0.0), rec["name"]
+    assert worst < 1e-12
+
+
+def test_trace_gram_schmidt_matches_numpy_reference():
+    """C++ Gram-Schmidt frames equal the NumPy reference for the same normal and guide."""
+    records = [r for r in _load_basis_records() if r["name"].startswith("gs_sample_")]
+    assert len(records) >= 1000
+    for rec in records:
+        ref = gram_schmidt_numpy(
+            np.asarray(rec["checks"]["input_normal"], dtype=float),
+            np.asarray(rec["checks"]["input_guide"], dtype=float),
+        )
+        assert np.allclose(rec["array"], ref, atol=1e-12, rtol=0.0), rec["name"]
+
+
+def test_trace_recorded_matrices_are_rotations():
+    """Recomputed from the logged matrices alone: Q^T Q = I, det = +1, T x B = N."""
+    for rec in _load_basis_records():
+        q = rec["array"]
+        assert np.allclose(q.T @ q, np.eye(3), atol=1e-12)
+        assert np.isclose(np.linalg.det(q), 1.0, atol=1e-12)
+        assert np.allclose(np.cross(q[:, 0], q[:, 1]), q[:, 2], atol=1e-12)
