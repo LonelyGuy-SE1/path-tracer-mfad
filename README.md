@@ -79,6 +79,7 @@ core/       renderer: rays, shapes, bvh, materials, path tracer, openmp
 stages/     one file per stage, eigen only, no renderer types
 trace/      trace writer (c++) and reader (python)
 viewer/     python: inspection, plots, comparisons
+prep/       python: mesh_checks and eigen preprocessing (see docs/prep.md)
 tests/      numpy reference for each stage
 scenes/     scene files and meshes
 docs/       one short note per stage: concept, purpose, outcome
