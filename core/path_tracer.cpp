@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <omp.h>
 
 namespace mfad {
@@ -136,6 +137,10 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
 
         // Russian Roulette termination (unbiased)
         if (bounce >= options_.min_rr_bounces) {
+            // Guard against NaN in throughput (can occur from degenerate geometry)
+            if (!throughput.allFinite()) {
+                break;
+            }
             // Photometric luminance: Y = 0.2126 R + 0.7152 G + 0.0722 B
             float p_survive =
                 0.2126f * throughput.x() + 0.7152f * throughput.y() + 0.0722f * throughput.z();
@@ -157,7 +162,7 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
     const int width = buffer.width();
     const int height = buffer.height();
 
-#pragma omp parallel for schedule(dynamic, 1)
+#pragma omp parallel for schedule(dynamic, 8)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             Eigen::Vector3f pixel_col = Eigen::Vector3f::Zero();
@@ -173,7 +178,16 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
             pixel_col /= static_cast<float>(samples_per_pixel);
             buffer.set_pixel(x, y, pixel_col);
         }
+#pragma omp critical
+        {
+            static int rows_done = 0;
+            ++rows_done;
+            if (rows_done % (height / 10 + 1) == 0 || rows_done == height) {
+                std::cerr << "\r[PathTracer] Progress: " << (100 * rows_done / height) << "%" << std::flush;
+            }
+        }
     }
+    if (height > 0) std::cerr << std::endl;
 }
 
 }  // namespace mfad

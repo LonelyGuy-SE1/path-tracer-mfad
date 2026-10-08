@@ -168,10 +168,18 @@ Scene SceneLoader::load_from_json(const std::string& filepath, double aspect_rat
         scene.camera_data.projection_matrix = proj_stage.value.projection_matrix;
 
         // Instantiate Camera object
+        float aperture = 0.0f;
+        float focus_dist_val = -1.0f;
+        if (cam_j.contains("aperture")) {
+            aperture = static_cast<float>(cam_j["aperture"].get<double>());
+        }
+        if (cam_j.contains("focus_dist")) {
+            focus_dist_val = static_cast<float>(cam_j["focus_dist"].get<double>());
+        }
         scene.camera_data.camera = std::make_unique<Camera>(
             scene.camera_data.eye.cast<float>(), scene.camera_data.look_at.cast<float>(),
             scene.camera_data.up.cast<float>(), static_cast<float>(scene.camera_data.vfov),
-            static_cast<float>(scene.camera_data.aspect_ratio));
+            static_cast<float>(scene.camera_data.aspect_ratio), aperture, focus_dist_val);
     }
 
     // 2. Parse Materials

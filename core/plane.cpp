@@ -31,3 +31,11 @@ bool Plane::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const {
 }
 
 }  // namespace mfad
+
+namespace mfad {
+AABB Plane::bounding_box() const {
+    float inf = std::numeric_limits<float>::max();
+    return AABB(Eigen::Vector3f(-inf, -inf, -inf), Eigen::Vector3f(inf, inf, inf));
+}
+}
+

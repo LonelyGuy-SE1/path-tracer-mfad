@@ -33,13 +33,14 @@ void render_gradient_artifact() {
             mfad::Ray ray = camera.generate_ray(u, v);
 
             // Classic sky gradient: smooth transition from white (horizon) to blue (zenith)
-            float t = 0.5f * (ray.direction.y() + 1.0f);
+            Eigen::Vector3f unit_dir = ray.direction.normalized();
+            float t = 0.5f * (unit_dir.y() + 1.0f);
             Eigen::Vector3f col = (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) +
                                   t * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
             image.set_pixel(x, y, col);
         }
     }
-    image.write_png("gradient.png");
+    image.write_png("step1_gradient.png", 2.2f, false);
 }
 
 void render_cornell_box() {
@@ -119,9 +120,10 @@ void render_cornell_box() {
 
     std::cout << "[INFO] Rendering Cornell Box (" << width << "x" << height << ", "
               << samples_per_pixel << " spp, max 32 bounces with Russian roulette)..." << std::endl;
+    scene.build_bvh();
     tracer.render(camera, scene, image, samples_per_pixel);
 
-    const std::string out_path = "cornell_box.png";
+    const std::string out_path = "step3_cornell_box.png";
     if (image.write_png(out_path)) {
         std::cout << "[SUCCESS] Rendered Cornell Box to " << out_path << std::endl;
     } else {
@@ -139,7 +141,7 @@ int main() {
 
     // 1. Generate gradient test artifact for Issue 19
     render_gradient_artifact();
-    std::cout << "[SUCCESS] Rendered Issue 19 gradient to gradient.png" << std::endl;
+    std::cout << "[SUCCESS] Rendered Issue 19 gradient to step1_gradient.png" << std::endl;
 
     // 2. Set up 3D scene with Diffuse, Glass, Mirror, and Checker floor
     mfad::HittableList scene;
@@ -181,13 +183,11 @@ int main() {
                         45.0f,                               // Vertical FOV
                         static_cast<float>(width) / static_cast<float>(height));
 
-    // Singular studio key light source for dramatic lighting
-    auto mat_studio_light = std::make_shared<mfad::DiffuseLight>(
-        Eigen::Vector3f(35.0f, 35.0f, 35.0f), /*two_sided=*/true);
-    auto studio_quad = std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-0.5f, 4.0f, 0.2f), Eigen::Vector3f(2.5f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, -0.4f, 2.0f), Eigen::Vector3f::Ones(), mat_studio_light);
-    scene.add(studio_quad);
+    // Visible Glowing Sphere for visualization
+    auto mat_studio_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(15.0f, 15.0f, 15.0f));
+    auto studio_light_sphere = std::make_shared<mfad::Sphere>(
+        Eigen::Vector3f(-1.2f, 1.2f, -1.5f), 0.2f, Eigen::Vector3f::Ones(), mat_studio_light);
+    scene.add(studio_light_sphere);
 
     mfad::PathTracerOptions opts_studio;
     opts_studio.max_bounces = 16;
@@ -195,14 +195,15 @@ int main() {
     opts_studio.use_sky_gradient = false;
     opts_studio.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
     opts_studio.sample_lights = true;
-    opts_studio.area_lights.push_back(studio_quad);
+    opts_studio.point_lights.push_back({Eigen::Vector3f(-1.2f, 1.2f, -1.5f), Eigen::Vector3f(15.0f, 15.0f, 15.0f)});
 
     mfad::PathTracer tracer(opts_studio);
     std::cout << "[INFO] Rendering spheres scene with singular key light (" << width << "x"
               << height << ", " << samples_per_pixel << " spp)..." << std::endl;
+    scene.build_bvh();
     tracer.render(camera, scene, image, samples_per_pixel);
 
-    const std::string scene_output = "spheres_on_plane.png";
+    const std::string scene_output = "step2_spheres_on_plane.png";
     if (image.write_png(scene_output)) {
         std::cout << "[SUCCESS] Rendered glass, mirror, and diffuse spheres on a plane to "
                   << scene_output << " (" << width << "x" << height << ", " << samples_per_pixel
@@ -212,8 +213,6 @@ int main() {
         return 1;
     }
 
-    // 3. Render Cornell Box (Issue #26)
-    render_cornell_box();
 
     // 4. Scene Loader & Direct Lighting Demo (Issue #20 & Issue #24)
     std::cout << "\n=================================================" << std::endl;
@@ -234,8 +233,15 @@ int main() {
         Eigen::Vector3f(0.0f, -0.5f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f),
         Eigen::Vector3f::Ones(), demo_floor_mat));
     demo_scene.point_lights.clear();
-    demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.2f, 2.8f, 0.5f),
-                                         Eigen::Vector3f(40.0f, 40.0f, 40.0f));
+    Eigen::Vector3f light_pos(2.0f, 2.5f, 0.0f);
+    Eigen::Vector3f light_color(200.0f, 200.0f, 200.0f);
+    demo_scene.point_lights.emplace_back(light_pos, light_color);
+    
+    // Add glowing sphere for visualization (so user can see the light source)
+    auto mat_demo_light = std::make_shared<mfad::DiffuseLight>(light_color * 2.0f);
+    auto demo_corner_light_sphere = std::make_shared<mfad::Sphere>(
+        light_pos, 0.2f, Eigen::Vector3f::Ones(), mat_demo_light);
+    demo_scene.hittables.add(demo_corner_light_sphere);
 
     const int demo_width = 640;
     const int demo_height = 360;
@@ -247,23 +253,15 @@ int main() {
 
     std::cout << "[INFO] Rendering loaded scene with Direct Lighting (singular corner light)..."
               << std::endl;
-    mfad::render_direct_lighting(*demo_scene.camera_data.camera, demo_scene, direct_image, dl_opts,
-                                 16);
-    const std::string direct_out = "final_demo_direct.png";
+    demo_scene.hittables.build_bvh();
+    mfad::render_direct_lighting(*demo_scene.camera_data.camera, demo_scene, direct_image, dl_opts, 32);
+    const std::string direct_out = "step3_final_demo_direct.png";
     if (direct_image.write_png(direct_out)) {
         std::cout << "[SUCCESS] Rendered final demo direct lighting to " << direct_out << std::endl;
     }
 
-    // Add singular physical key area light in the upper corner for Monte Carlo Path Tracer
-    auto mat_demo_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(40.0f, 40.0f, 40.0f),
-                                                               /*two_sided=*/true);
-    auto demo_corner_light = std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(1.8f, 2.4f, 0.1f), Eigen::Vector3f(0.8f, 0.0f, 0.6f),
-        Eigen::Vector3f(0.0f, 0.8f, -0.3f), Eigen::Vector3f::Ones(), mat_demo_light);
-    demo_scene.hittables.add(demo_corner_light);
-
     // Render loaded demo scene with full Monte Carlo Path Tracer using Next Event Estimation
-    const int pt_spp = 512;
+    const int pt_spp = 128;
     std::cout << "[INFO] Rendering loaded scene with PathTracer (singular corner light, NEE, "
               << pt_spp << " spp)..." << std::endl;
     mfad::ImageBuffer pt_image(demo_width, demo_height);
@@ -273,11 +271,12 @@ int main() {
     pt_opts.max_bounces = 16;
     pt_opts.min_rr_bounces = 3;
     pt_opts.sample_lights = true;
-    pt_opts.area_lights.push_back(demo_corner_light);
+    pt_opts.point_lights.push_back({light_pos, light_color});
 
     mfad::PathTracer demo_tracer(pt_opts);
+    demo_scene.hittables.build_bvh();
     demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, pt_spp);
-    const std::string pt_out = "final_demo_pathtraced.png";
+    const std::string pt_out = "step4_final_demo_pathtraced.png";
     if (pt_image.write_png(pt_out)) {
         std::cout << "[SUCCESS] Rendered final demo path tracing to " << pt_out << std::endl;
     }

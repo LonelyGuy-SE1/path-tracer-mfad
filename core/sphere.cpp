@@ -39,3 +39,11 @@ bool Sphere::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const {
 }
 
 }  // namespace mfad
+
+namespace mfad {
+AABB Sphere::bounding_box() const {
+    return AABB(center_ - Eigen::Vector3f(radius_, radius_, radius_),
+                center_ + Eigen::Vector3f(radius_, radius_, radius_));
+}
+}
+

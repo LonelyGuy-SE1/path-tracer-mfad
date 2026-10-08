@@ -24,7 +24,7 @@ Eigen::Vector3f ImageBuffer::get_pixel(int x, int y) const {
     return Eigen::Vector3f::Zero();
 }
 
-bool ImageBuffer::write_png(const std::string& filepath, float gamma) const {
+bool ImageBuffer::write_png(const std::string& filepath, float gamma, bool apply_aces) const {
     std::vector<unsigned char> bytes(width_ * height_ * 3);
     const float inv_gamma = 1.0f / gamma;
 
@@ -32,15 +32,34 @@ bool ImageBuffer::write_png(const std::string& filepath, float gamma) const {
         for (int x = 0; x < width_; ++x) {
             const Eigen::Vector3f& c = pixels_[y * width_ + x];
 
-            // Gamma correction: c^(1/gamma), clamped to [0.0, 1.0]
-            float r = std::clamp(std::pow(std::max(0.0f, c.x()), inv_gamma), 0.0f, 1.0f);
-            float g = std::clamp(std::pow(std::max(0.0f, c.y()), inv_gamma), 0.0f, 1.0f);
-            float b = std::clamp(std::pow(std::max(0.0f, c.z()), inv_gamma), 0.0f, 1.0f);
+            // ACES filmic tone mapping followed by sRGB gamma correction
+            auto aces_tonemap = [](float x) -> float {
+                float a = 2.51f;
+                float b = 0.03f;
+                float c = 2.43f;
+                float d = 0.59f;
+                float e = 0.14f;
+                return std::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
+            };
+            
+            float rc = std::max(0.0f, c.x());
+            float gc = std::max(0.0f, c.y());
+            float bc = std::max(0.0f, c.z());
+            
+            if (apply_aces) {
+                rc = aces_tonemap(rc);
+                gc = aces_tonemap(gc);
+                bc = aces_tonemap(bc);
+            }
+            
+            float r = std::pow(std::clamp(rc, 0.0f, 1.0f), inv_gamma);
+            float g = std::pow(std::clamp(gc, 0.0f, 1.0f), inv_gamma);
+            float b_ch = std::pow(std::clamp(bc, 0.0f, 1.0f), inv_gamma);
 
             int idx = (y * width_ + x) * 3;
-            bytes[idx + 0] = static_cast<unsigned char>(r * 255.0f);
-            bytes[idx + 1] = static_cast<unsigned char>(g * 255.0f);
-            bytes[idx + 2] = static_cast<unsigned char>(b * 255.0f);
+            bytes[idx + 0] = static_cast<unsigned char>(r * 255.0f + 0.5f);
+            bytes[idx + 1] = static_cast<unsigned char>(g * 255.0f + 0.5f);
+            bytes[idx + 2] = static_cast<unsigned char>(b_ch * 255.0f + 0.5f);
         }
     }
 

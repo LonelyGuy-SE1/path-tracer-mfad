@@ -189,7 +189,13 @@ public:
         bool cannot_refract = (refraction_ratio * sin_theta > 1.0f);
         Eigen::Vector3f direction;
 
-        float refl_prob = reflectance(cos_theta, refraction_ratio);
+        float cos_theta_schlick = cos_theta;
+        if (refraction_ratio > 1.0f && !cannot_refract) {
+            float sin_theta_t = refraction_ratio * sin_theta;
+            cos_theta_schlick = std::sqrt(std::max(0.0f, 1.0f - sin_theta_t * sin_theta_t));
+        }
+
+        float refl_prob = reflectance(cos_theta_schlick, refraction_ratio);
 
         // Random Fresnel choice: reflect with probability refl_prob, otherwise refract
         if (cannot_refract || refl_prob > random_float()) {

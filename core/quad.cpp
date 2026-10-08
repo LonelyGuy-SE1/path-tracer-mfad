@@ -50,3 +50,17 @@ bool Quad::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const {
 }
 
 }  // namespace mfad
+
+namespace mfad {
+AABB Quad::bounding_box() const {
+    Eigen::Vector3f p0 = Q_;
+    Eigen::Vector3f p1 = Q_ + u_;
+    Eigen::Vector3f p2 = Q_ + v_;
+    Eigen::Vector3f p3 = Q_ + u_ + v_;
+    Eigen::Vector3f min_pt = p0.cwiseMin(p1).cwiseMin(p2).cwiseMin(p3);
+    Eigen::Vector3f max_pt = p0.cwiseMax(p1).cwiseMax(p2).cwiseMax(p3);
+    Eigen::Vector3f padding = Eigen::Vector3f::Constant(1e-4f);
+    return AABB(min_pt - padding, max_pt + padding);
+}
+}
+
