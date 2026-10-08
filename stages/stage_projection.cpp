@@ -6,7 +6,7 @@
 namespace mfad {
 
 StageResult<Eigen::Vector3d> stage_reflect(const Eigen::Vector3d& v, const Eigen::Vector3d& n,
-                                         Trace* trace, const std::string& item_name) {
+                                           Trace* trace, const std::string& item_name) {
     Eigen::Vector3d unit_n = n.normalized();
     Eigen::Vector3d r = v - 2.0 * v.dot(unit_n) * unit_n;
 
@@ -62,8 +62,8 @@ StageResult<double> stage_diffuse_term(const Eigen::Vector3d& normal,
 }
 
 StageResult<ShadowRayResult> stage_shadow_direction(const Eigen::Vector3d& surface_point,
-                                                   const Eigen::Vector3d& light_pos, double eps,
-                                                   Trace* trace, const std::string& item_name) {
+                                                    const Eigen::Vector3d& light_pos, double eps,
+                                                    Trace* trace, const std::string& item_name) {
     Eigen::Vector3d to_light = light_pos - surface_point;
     double dist = to_light.norm();
     Eigen::Vector3d dir = (dist > 1e-12) ? to_light / dist : Eigen::Vector3d(0.0, 1.0, 0.0);
@@ -118,9 +118,8 @@ StageResult<ProjectResult> stage_project_image_plane(const Eigen::Vector3d& poin
     }
 
     // Check NDC bounds [-1, 1]^3
-    res.in_frustum = (res.ndc.x() >= -1.0 && res.ndc.x() <= 1.0 &&
-                      res.ndc.y() >= -1.0 && res.ndc.y() <= 1.0 &&
-                      res.ndc.z() >= -1.0 && res.ndc.z() <= 1.0);
+    res.in_frustum = (res.ndc.x() >= -1.0 && res.ndc.x() <= 1.0 && res.ndc.y() >= -1.0 &&
+                      res.ndc.y() <= 1.0 && res.ndc.z() >= -1.0 && res.ndc.z() <= 1.0);
 
     // Map NDC to pixel coordinates [0, width - 1] x [0, height - 1]
     double px = 0.5 * (res.ndc.x() + 1.0) * static_cast<double>(width - 1);

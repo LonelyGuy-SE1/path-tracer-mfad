@@ -159,13 +159,15 @@ void test_composition_and_normal_transform() {
 }
 
 int main() {
-    std::cout << "[TEST] Running stage_transforms, stage_interface, and trace_writer tests (Issue #4, #5, #10)..."
+    std::cout << "[TEST] Running stage_transforms, stage_interface, and trace_writer tests (Issue "
+                 "#4, #5, #10)..."
               << std::endl;
     test_stage_interface_dummy();
     test_trace_binary_writer();
     test_rotations();
     test_scale_and_shear_fail_isometry();
     test_composition_and_normal_transform();
-    std::cout << "[PASS] All stage_transforms, stage_interface, and trace_writer tests passed!" << std::endl;
+    std::cout << "[PASS] All stage_transforms, stage_interface, and trace_writer tests passed!"
+              << std::endl;
     return 0;
 }

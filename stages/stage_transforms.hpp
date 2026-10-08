@@ -75,9 +75,9 @@ Eigen::Vector3d transform_vector(const Eigen::Matrix4d& M, const Eigen::Vector3d
 Eigen::Vector3d transform_normal(const Eigen::Matrix4d& M, const Eigen::Vector3d& n);
 
 /**
- * @brief MFAD stage for 4x4 affine transformation analysis and linear algebra validation (Issue #10).
- * Validates orthogonal properties (Q^T Q = I and det(Q) = 1) for rotations, and logs
- * that scale and shear transformations fail these isometry checks.
+ * @brief MFAD stage for 4x4 affine transformation analysis and linear algebra validation (Issue
+ * #10). Validates orthogonal properties (Q^T Q = I and det(Q) = 1) for rotations, and logs that
+ * scale and shear transformations fail these isometry checks.
  *
  * @param transform 4x4 transformation matrix.
  * @param transform_type Description ("rotation", "scale", "shear", "composite").
@@ -85,8 +85,8 @@ Eigen::Vector3d transform_normal(const Eigen::Matrix4d& M, const Eigen::Vector3d
  * @param item_name Key name when written to trace records.
  */
 StageResult<Eigen::Matrix4d> stage_transforms(const Eigen::Matrix4d& transform,
-                                             const std::string& transform_type,
-                                             Trace* trace = nullptr,
-                                             const std::string& item_name = "transform");
+                                              const std::string& transform_type,
+                                              Trace* trace = nullptr,
+                                              const std::string& item_name = "transform");
 
 }  // namespace mfad

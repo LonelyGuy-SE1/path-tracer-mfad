@@ -4,19 +4,25 @@ import numpy as np
 def make_rotate_x_numpy(angle_rad: float) -> np.ndarray:
     c = np.cos(angle_rad)
     s = np.sin(angle_rad)
-    return np.array([[1.0, 0.0, 0.0, 0.0], [0.0, c, -s, 0.0], [0.0, s, c, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    return np.array(
+        [[1.0, 0.0, 0.0, 0.0], [0.0, c, -s, 0.0], [0.0, s, c, 0.0], [0.0, 0.0, 0.0, 1.0]]
+    )
 
 
 def make_rotate_y_numpy(angle_rad: float) -> np.ndarray:
     c = np.cos(angle_rad)
     s = np.sin(angle_rad)
-    return np.array([[c, 0.0, s, 0.0], [0.0, 1.0, 0.0, 0.0], [-s, 0.0, c, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    return np.array(
+        [[c, 0.0, s, 0.0], [0.0, 1.0, 0.0, 0.0], [-s, 0.0, c, 0.0], [0.0, 0.0, 0.0, 1.0]]
+    )
 
 
 def make_rotate_z_numpy(angle_rad: float) -> np.ndarray:
     c = np.cos(angle_rad)
     s = np.sin(angle_rad)
-    return np.array([[c, -s, 0.0, 0.0], [s, c, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    return np.array(
+        [[c, -s, 0.0, 0.0], [s, c, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+    )
 
 
 def make_scale_numpy(s: np.ndarray) -> np.ndarray:

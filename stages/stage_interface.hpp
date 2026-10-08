@@ -11,8 +11,7 @@ namespace mfad {
  *
  * @tparam T Type of the computed mathematical value (e.g., Matrix4d, Vector3d, double).
  */
-template <typename T>
-struct StageResult {
+template <typename T> struct StageResult {
     T value;
     bool success{true};
     std::string stage_name;

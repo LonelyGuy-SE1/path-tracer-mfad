@@ -118,8 +118,8 @@ Eigen::Vector3d transform_normal(const Eigen::Matrix4d& M, const Eigen::Vector3d
 }
 
 StageResult<Eigen::Matrix4d> stage_transforms(const Eigen::Matrix4d& transform,
-                                             const std::string& transform_type,
-                                             Trace* trace, const std::string& item_name) {
+                                              const std::string& transform_type, Trace* trace,
+                                              const std::string& item_name) {
     // Extract upper-left 3x3 block Q for linear algebra invariant analysis
     Eigen::Matrix3d Q = transform.block<3, 3>(0, 0);
 
@@ -149,7 +149,8 @@ StageResult<Eigen::Matrix4d> stage_transforms(const Eigen::Matrix4d& transform,
     }
 
     return StageResult<Eigen::Matrix4d>(transform, true, "transforms",
-                                       "Transform stage analysis complete (" + transform_type + ")");
+                                        "Transform stage analysis complete (" + transform_type +
+                                            ")");
 }
 
 }  // namespace mfad

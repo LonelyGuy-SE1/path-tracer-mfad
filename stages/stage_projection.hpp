@@ -26,8 +26,8 @@ struct ProjectResult {
  * Formula: r = v - 2 * (v . n) * n
  */
 StageResult<Eigen::Vector3d> stage_reflect(const Eigen::Vector3d& v, const Eigen::Vector3d& n,
-                                         Trace* trace = nullptr,
-                                         const std::string& item_name = "reflect");
+                                           Trace* trace = nullptr,
+                                           const std::string& item_name = "reflect");
 
 /**
  * @brief MFAD stage computing Lambertian diffuse cosine term (Issue #13).
@@ -41,13 +41,14 @@ StageResult<double> stage_diffuse_term(const Eigen::Vector3d& normal,
  * @brief MFAD stage computing shadow ray test vector and surface offset (Issue #13).
  */
 StageResult<ShadowRayResult> stage_shadow_direction(const Eigen::Vector3d& surface_point,
-                                                   const Eigen::Vector3d& light_pos,
-                                                   double eps = 1e-4, Trace* trace = nullptr,
-                                                   const std::string& item_name = "shadow");
+                                                    const Eigen::Vector3d& light_pos,
+                                                    double eps = 1e-4, Trace* trace = nullptr,
+                                                    const std::string& item_name = "shadow");
 
 /**
  * @brief MFAD stage computing pinhole perspective projection onto the image plane (Issue #13).
- * Maps view space points through standard 4x4 perspective projection matrix into NDC and pixel coordinates.
+ * Maps view space points through standard 4x4 perspective projection matrix into NDC and pixel
+ * coordinates.
  */
 StageResult<ProjectResult> stage_project_image_plane(const Eigen::Vector3d& point_view_space,
                                                      double vfov_deg, double aspect_ratio,

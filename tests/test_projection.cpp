@@ -75,7 +75,8 @@ void test_shadow_direction_on_hand_picked_vectors() {
     Eigen::Vector3d surface_pt(1.0, 0.0, -2.0);
     Eigen::Vector3d light_pos(1.0, 4.0, -2.0);
 
-    auto res = mfad::stage_shadow_direction(surface_pt, light_pos, 1e-4, &trace, "shadow_point_light");
+    auto res =
+        mfad::stage_shadow_direction(surface_pt, light_pos, 1e-4, &trace, "shadow_point_light");
     assert(res.success);
     assert(std::abs(res.value.distance - 4.0) < 1e-12);
     assert((res.value.direction - Eigen::Vector3d(0.0, 1.0, 0.0)).norm() < 1e-12);
@@ -96,8 +97,8 @@ void test_projection_onto_image_plane() {
 
     // Center point along -Z in front of camera
     Eigen::Vector3d pt_center(0.0, 0.0, -5.0);
-    auto res_center = mfad::stage_project_image_plane(pt_center, vfov, aspect, width, height,
-                                                      0.1, 100.0, &trace, "project_center");
+    auto res_center = mfad::stage_project_image_plane(pt_center, vfov, aspect, width, height, 0.1,
+                                                      100.0, &trace, "project_center");
     assert(res_center.success);
     assert(res_center.value.in_frustum);
     // Center maps to NDC (0, 0)
@@ -109,8 +110,8 @@ void test_projection_onto_image_plane() {
 
     // Point outside frustum (behind camera)
     Eigen::Vector3d pt_behind(0.0, 0.0, 5.0);
-    auto res_behind = mfad::stage_project_image_plane(pt_behind, vfov, aspect, width, height,
-                                                      0.1, 100.0, &trace, "project_behind");
+    auto res_behind = mfad::stage_project_image_plane(pt_behind, vfov, aspect, width, height, 0.1,
+                                                      100.0, &trace, "project_behind");
     assert(res_behind.success);
     assert(!res_behind.value.in_frustum);
 }
