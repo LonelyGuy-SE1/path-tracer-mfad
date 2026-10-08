@@ -84,6 +84,24 @@ inline float reflectance(float cosine, float ref_idx) {
 }
 
 /**
+ * @brief Cosine-weighted hemispherical sampling around a surface normal using Duff et al.
+ * orthonormal basis.
+ */
+inline Eigen::Vector3f sample_cosine_hemisphere(const Eigen::Vector3f& normal) {
+    const float pi = 3.14159265358979323846f;
+    float r1 = random_float();
+    float r2 = random_float();
+    float phi = 2.0f * pi * r1;
+    float r = std::sqrt(r2);
+    float x = r * std::cos(phi);
+    float y = r * std::sin(phi);
+    float z = std::sqrt(std::max(0.0f, 1.0f - r2));
+
+    BasisResult basis = stage_basis_normal(normal.cast<double>());
+    return basis.to_world(Eigen::Vector3d(x, y, z)).cast<float>().normalized();
+}
+
+/**
  * @brief Diffuse (Lambertian) Material using stage_basis for cosine-weighted bounce sampling.
  */
 class Lambertian : public Material {
@@ -91,23 +109,7 @@ public:
     explicit Lambertian(const Eigen::Vector3f& albedo) : albedo_(albedo) {}
 
     bool scatter(const Ray& /*r_in*/, const HitRecord& rec, ScatterRecord& srec) const override {
-        // 1. Generate cosine-weighted sample in local hemisphere coordinates (Z-up)
-        const float pi = 3.14159265358979323846f;
-        float r1 = random_float();
-        float r2 = random_float();
-        float phi = 2.0f * pi * r1;
-        float r = std::sqrt(r2);
-        float x = r * std::cos(phi);
-        float y = r * std::sin(phi);
-        float z = std::sqrt(std::max(0.0f, 1.0f - r2));
-        Eigen::Vector3d local_dir(x, y, z);
-
-        // 2. Use stage_basis (#12) to construct orthonormal frame Q around surface normal
-        BasisResult basis = stage_basis_normal(rec.normal.cast<double>());
-
-        // 3. Transform local bounce to world space: v_world = Q * v_local
-        Eigen::Vector3f scatter_dir = basis.to_world(local_dir).cast<float>().normalized();
-
+        Eigen::Vector3f scatter_dir = sample_cosine_hemisphere(rec.normal);
         srec.scattered = Ray(rec.point + 1e-4f * rec.normal, scatter_dir);
         srec.attenuation = albedo_;
         return true;
@@ -133,20 +135,7 @@ public:
         bool is_even = ((cx + cz) % 2 + 2) % 2 == 0;
         Eigen::Vector3f albedo = is_even ? color1_ : color2_;
 
-        // Use stage_basis for cosine bounce
-        const float pi = 3.14159265358979323846f;
-        float r1 = random_float();
-        float r2 = random_float();
-        float phi = 2.0f * pi * r1;
-        float r = std::sqrt(r2);
-        float x = r * std::cos(phi);
-        float y = r * std::sin(phi);
-        float z = std::sqrt(std::max(0.0f, 1.0f - r2));
-
-        BasisResult basis = stage_basis_normal(rec.normal.cast<double>());
-        Eigen::Vector3f scatter_dir =
-            basis.to_world(Eigen::Vector3d(x, y, z)).cast<float>().normalized();
-
+        Eigen::Vector3f scatter_dir = sample_cosine_hemisphere(rec.normal);
         srec.scattered = Ray(rec.point + 1e-4f * rec.normal, scatter_dir);
         srec.attenuation = albedo;
         return true;
