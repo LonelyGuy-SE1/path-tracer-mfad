@@ -6,9 +6,9 @@ def reflect_numpy(v: np.ndarray, n: np.ndarray) -> np.ndarray:
     return v - 2.0 * np.dot(v, n_unit) * n_unit
 
 
-def diffuse_term_numpy(n: np.ndarray, l: np.ndarray) -> float:
+def diffuse_term_numpy(n: np.ndarray, l_dir: np.ndarray) -> float:
     n_unit = n / np.linalg.norm(n)
-    l_unit = l / np.linalg.norm(l)
+    l_unit = l_dir / np.linalg.norm(l_dir)
     return max(0.0, float(np.dot(n_unit, l_unit)))
 
 
