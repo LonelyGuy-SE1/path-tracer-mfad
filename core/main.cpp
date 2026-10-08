@@ -169,7 +169,7 @@ int main() {
     // Camera setup
     const int width = 640;
     const int height = 360;
-    const int samples_per_pixel = 32;
+    const int samples_per_pixel = 128;
 
     mfad::ImageBuffer image(width, height);
     mfad::Camera camera(Eigen::Vector3f(0.0f, 0.4f, 2.2f),   // Eye
@@ -178,14 +178,22 @@ int main() {
                         45.0f,                               // Vertical FOV
                         static_cast<float>(width) / static_cast<float>(height));
 
-    mfad::PathTracerOptions opts_outdoor;
-    opts_outdoor.max_bounces = 16;
-    opts_outdoor.min_rr_bounces = 3;
-    opts_outdoor.use_sky_gradient = true;
+    // Singular studio key light source for dramatic lighting
+    auto mat_studio_light = std::make_shared<mfad::DiffuseLight>(
+        Eigen::Vector3f(35.0f, 35.0f, 35.0f), /*two_sided=*/true);
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-0.5f, 4.0f, 0.2f), Eigen::Vector3f(2.5f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, -0.4f, 2.0f), Eigen::Vector3f::Ones(), mat_studio_light));
 
-    mfad::PathTracer tracer(opts_outdoor);
-    std::cout << "[INFO] Rendering outdoor spheres scene (" << width << "x" << height << ", "
-              << samples_per_pixel << " spp)..." << std::endl;
+    mfad::PathTracerOptions opts_studio;
+    opts_studio.max_bounces = 16;
+    opts_studio.min_rr_bounces = 3;
+    opts_studio.use_sky_gradient = false;
+    opts_studio.background_color = Eigen::Vector3f::Zero();
+
+    mfad::PathTracer tracer(opts_studio);
+    std::cout << "[INFO] Rendering spheres scene with singular key light (" << width << "x"
+              << height << ", " << samples_per_pixel << " spp)..." << std::endl;
     tracer.render(camera, scene, image, samples_per_pixel);
 
     const std::string scene_output = "spheres_on_plane.png";
@@ -219,18 +227,20 @@ int main() {
     demo_scene.hittables.add(std::make_shared<mfad::Plane>(
         Eigen::Vector3f(0.0f, -0.5f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f),
         Eigen::Vector3f::Ones(), demo_floor_mat));
-    if (demo_scene.point_lights.empty()) {
-        demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 1.5f),
-                                             Eigen::Vector3f(12.0f, 12.0f, 12.0f));
-    }
+    demo_scene.point_lights.clear();
+    demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 1.5f),
+                                         Eigen::Vector3f(35.0f, 35.0f, 35.0f));
 
     const int demo_width = 640;
     const int demo_height = 360;
     mfad::ImageBuffer direct_image(demo_width, demo_height);
     mfad::DirectLightingOptions dl_opts;
-    dl_opts.ambient_color = Eigen::Vector3f(0.08f, 0.08f, 0.10f);
+    dl_opts.use_sky_gradient = false;
+    dl_opts.background_color = Eigen::Vector3f::Zero();
+    dl_opts.ambient_color = Eigen::Vector3f(0.01f, 0.01f, 0.015f);
 
-    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (Lambertian + shadow rays)..."
+    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (singular point light, black "
+                 "background)..."
               << std::endl;
     mfad::render_direct_lighting(*demo_scene.camera_data.camera, demo_scene, direct_image, dl_opts,
                                  16);
@@ -239,16 +249,25 @@ int main() {
         std::cout << "[SUCCESS] Rendered final demo direct lighting to " << direct_out << std::endl;
     }
 
-    // Also render loaded demo scene with full Monte Carlo Path Tracer
-    std::cout << "[INFO] Rendering loaded scene with PathTracer (global illumination + caustics)..."
-              << std::endl;
+    // Add physical key area light for Monte Carlo Path Tracer
+    auto mat_demo_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(40.0f, 40.0f, 40.0f),
+                                                               /*two_sided=*/true);
+    demo_scene.hittables.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(1.0f, 3.8f, 0.5f), Eigen::Vector3f(1.8f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, -0.4f, 1.8f), Eigen::Vector3f::Ones(), mat_demo_light));
+
+    // Also render loaded demo scene with full Monte Carlo Path Tracer on black background
+    std::cout
+        << "[INFO] Rendering loaded scene with PathTracer (singular key light, black background)..."
+        << std::endl;
     mfad::ImageBuffer pt_image(demo_width, demo_height);
     mfad::PathTracerOptions pt_opts;
-    pt_opts.use_sky_gradient = true;
+    pt_opts.use_sky_gradient = false;
+    pt_opts.background_color = Eigen::Vector3f::Zero();
     pt_opts.max_bounces = 16;
     pt_opts.min_rr_bounces = 3;
     mfad::PathTracer demo_tracer(pt_opts);
-    demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, 64);
+    demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, 256);
     const std::string pt_out = "final_demo_pathtraced.png";
     if (pt_image.write_png(pt_out)) {
         std::cout << "[SUCCESS] Rendered final demo path tracing to " << pt_out << std::endl;

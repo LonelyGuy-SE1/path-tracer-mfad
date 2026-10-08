@@ -13,11 +13,13 @@
 namespace mfad {
 
 struct DirectLightingOptions {
-    Eigen::Vector3f ambient_color{0.1f, 0.1f, 0.12f};
+    Eigen::Vector3f ambient_color{0.02f, 0.02f, 0.02f};
     bool use_distance_attenuation{true};
     float min_distance_clamp{0.3f};
     double shadow_epsilon{1e-4};
     Trace* trace{nullptr};
+    bool use_sky_gradient{false};
+    Eigen::Vector3f background_color{Eigen::Vector3f::Zero()};
 };
 
 /**

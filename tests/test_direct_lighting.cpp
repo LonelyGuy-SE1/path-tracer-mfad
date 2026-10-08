@@ -134,7 +134,9 @@ void test_render_direct_lighting_scene() {
     mfad::ImageBuffer buffer(width, height);
     mfad::DirectLightingOptions opts;
     opts.use_distance_attenuation = true;
-    opts.ambient_color = Eigen::Vector3f(0.05f, 0.05f, 0.08f);
+    opts.use_sky_gradient = false;
+    opts.background_color = Eigen::Vector3f::Zero();
+    opts.ambient_color = Eigen::Vector3f(0.02f, 0.02f, 0.02f);
 
     mfad::render_direct_lighting(camera, scene, buffer, opts, 4);
 
