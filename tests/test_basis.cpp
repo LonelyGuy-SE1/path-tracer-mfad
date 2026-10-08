@@ -1,6 +1,9 @@
 #include "stage_basis.hpp"
 #include "trace.hpp"
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <cmath>
 #include <iostream>

@@ -3,7 +3,9 @@
 #include "hittable.hpp"
 #include "image_buffer.hpp"
 #include "material.hpp"
+#include "path_tracer.hpp"
 #include "plane.hpp"
+#include "quad.hpp"
 #include "ray.hpp"
 #include "sphere.hpp"
 #include "stage_basis.hpp"
@@ -41,32 +43,88 @@ void render_gradient_artifact() {
     image.write_png("gradient.png");
 }
 
-Eigen::Vector3f ray_color(const mfad::Ray& r, const mfad::Hittable& scene, int depth) {
-    if (depth <= 0) {
-        return Eigen::Vector3f::Zero();
+void render_cornell_box() {
+    const int width = 400;
+    const int height = 400;
+    const int samples_per_pixel = 256;
+
+    mfad::HittableList scene;
+
+    // Materials
+    auto mat_red = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.65f, 0.05f, 0.05f));
+    auto mat_green = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.12f, 0.45f, 0.15f));
+    auto mat_white = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.73f, 0.73f, 0.73f));
+    auto mat_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(15.0f, 15.0f, 15.0f),
+                                                          /*two_sided=*/true);
+    auto mat_glass = std::make_shared<mfad::Dielectric>(1.5f);
+    auto mat_mirror = std::make_shared<mfad::Metal>(Eigen::Vector3f(0.9f, 0.9f, 0.9f), 0.0f);
+
+    // Floor (pointing up)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-1.0f, -1.0f, -0.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, -2.0f), Eigen::Vector3f::Ones(), mat_white));
+
+    // Ceiling (pointing down)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-1.0f, 1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, 2.0f), Eigen::Vector3f::Ones(), mat_white));
+
+    // Ceiling Light (pointing down)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-0.3f, 0.999f, -1.8f), Eigen::Vector3f(0.6f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, 0.6f), Eigen::Vector3f::Ones(), mat_light));
+
+    // Back wall (pointing forward +z)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-1.0f, -1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
+
+    // Left wall (Red, pointing right +x)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-1.0f, -1.0f, -0.5f), Eigen::Vector3f(0.0f, 0.0f, -2.0f),
+        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_red));
+
+    // Right wall (Green, pointing left -x)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(1.0f, -1.0f, -2.5f), Eigen::Vector3f(0.0f, 0.0f, 2.0f),
+        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_green));
+
+    // Spheres inside box: glass sphere on left, chrome mirror sphere on right
+    scene.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(-0.45f, -0.6f, -1.4f), 0.4f,
+                                             Eigen::Vector3f::Ones(), mat_glass));
+    scene.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(0.45f, -0.6f, -1.8f), 0.4f,
+                                             Eigen::Vector3f::Ones(), mat_mirror));
+
+    // Camera setup for Cornell box
+    mfad::Camera camera(Eigen::Vector3f(0.0f, 0.0f, 1.4f), Eigen::Vector3f(0.0f, 0.0f, -1.5f),
+                        Eigen::Vector3f(0.0f, 1.0f, 0.0f), 55.0f, 1.0f);
+
+    mfad::PathTracerOptions opts;
+    opts.max_bounces = 32;
+    opts.min_rr_bounces = 3;
+    opts.rr_survival_clamp_min = 0.05f;
+    opts.rr_survival_clamp_max = 0.95f;
+    opts.background_color = Eigen::Vector3f::Zero();
+    opts.use_sky_gradient = false;
+
+    mfad::PathTracer tracer(opts);
+    mfad::ImageBuffer image(width, height);
+
+    std::cout << "[INFO] Rendering Cornell Box (" << width << "x" << height << ", "
+              << samples_per_pixel << " spp, max 32 bounces with Russian roulette)..." << std::endl;
+    tracer.render(camera, scene, image, samples_per_pixel);
+
+    const std::string out_path = "cornell_box.png";
+    if (image.write_png(out_path)) {
+        std::cout << "[SUCCESS] Rendered Cornell Box to " << out_path << std::endl;
+    } else {
+        std::cerr << "[ERROR] Failed to save " << out_path << std::endl;
     }
-
-    mfad::HitRecord rec;
-    if (scene.hit(r, 0.001f, 1000.0f, rec)) {
-        mfad::ScatterRecord srec;
-        if (rec.material != nullptr && rec.material->scatter(r, rec, srec)) {
-            return srec.attenuation.cwiseProduct(ray_color(srec.scattered, scene, depth - 1));
-        }
-
-        // Direct lighting fallback if no material attached
-        Eigen::Vector3f light_dir = Eigen::Vector3f(-0.5f, 1.0f, 0.4f).normalized();
-        float n_dot_l = std::max(0.0f, rec.normal.dot(light_dir));
-        return (0.25f + 0.75f * n_dot_l) * rec.color;
-    }
-
-    // Sky background gradient
-    float t = 0.5f * (r.direction.y() + 1.0f);
-    return (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) + t * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
 }
 
 int main() {
     std::cout << "=================================================" << std::endl;
-    std::cout << "  MFAD Linear Algebra Path Tracer (Materials)    " << std::endl;
+    std::cout << "  MFAD Linear Algebra Path Tracer (Issue #26)    " << std::endl;
     std::cout << "=================================================" << std::endl;
     std::cout << "Eigen version: " << EIGEN_WORLD_VERSION << "." << EIGEN_MAJOR_VERSION << "."
               << EIGEN_MINOR_VERSION << std::endl;
@@ -107,8 +165,7 @@ int main() {
     // Camera setup
     const int width = 640;
     const int height = 360;
-    const int samples_per_pixel = 16;
-    const int max_depth = 8;
+    const int samples_per_pixel = 32;
 
     mfad::ImageBuffer image(width, height);
     mfad::Camera camera(Eigen::Vector3f(0.0f, 0.4f, 2.2f),   // Eye
@@ -117,23 +174,15 @@ int main() {
                         45.0f,                               // Vertical FOV
                         static_cast<float>(width) / static_cast<float>(height));
 
-#pragma omp parallel for schedule(dynamic, 1)
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            Eigen::Vector3f pixel_col = Eigen::Vector3f::Zero();
-            for (int s = 0; s < samples_per_pixel; ++s) {
-                float u =
-                    (static_cast<float>(x) + mfad::random_float()) / static_cast<float>(width - 1);
-                float v = (static_cast<float>(height - 1 - y) + mfad::random_float()) /
-                          static_cast<float>(height - 1);
+    mfad::PathTracerOptions opts_outdoor;
+    opts_outdoor.max_bounces = 16;
+    opts_outdoor.min_rr_bounces = 3;
+    opts_outdoor.use_sky_gradient = true;
 
-                mfad::Ray ray = camera.generate_ray(u, v);
-                pixel_col += ray_color(ray, scene, max_depth);
-            }
-            pixel_col /= static_cast<float>(samples_per_pixel);
-            image.set_pixel(x, y, pixel_col);
-        }
-    }
+    mfad::PathTracer tracer(opts_outdoor);
+    std::cout << "[INFO] Rendering outdoor spheres scene (" << width << "x" << height << ", "
+              << samples_per_pixel << " spp)..." << std::endl;
+    tracer.render(camera, scene, image, samples_per_pixel);
 
     const std::string scene_output = "spheres_on_plane.png";
     if (image.write_png(scene_output)) {
@@ -144,6 +193,9 @@ int main() {
         std::cerr << "[ERROR] Failed to save " << scene_output << std::endl;
         return 1;
     }
+
+    // 3. Render Cornell Box (Issue #26)
+    render_cornell_box();
 
     return 0;
 }

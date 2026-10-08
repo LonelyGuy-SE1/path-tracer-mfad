@@ -45,6 +45,9 @@ class Material {
 public:
     virtual ~Material() = default;
     virtual bool scatter(const Ray& r_in, const HitRecord& rec, ScatterRecord& srec) const = 0;
+    virtual Eigen::Vector3f emitted(const Ray& /*r_in*/, const HitRecord& /*rec*/) const {
+        return Eigen::Vector3f::Zero();
+    }
 };
 
 /**
@@ -217,6 +220,35 @@ public:
 
 private:
     float ir_;
+};
+
+/**
+ * @brief Diffuse emissive light material (area light).
+ */
+class DiffuseLight : public Material {
+public:
+    explicit DiffuseLight(const Eigen::Vector3f& emit, bool two_sided = false)
+        : emit_(emit), two_sided_(two_sided) {}
+
+    bool scatter(const Ray& /*r_in*/, const HitRecord& /*rec*/,
+                 ScatterRecord& /*srec*/) const override {
+        return false;
+    }
+
+    Eigen::Vector3f emitted(const Ray& /*r_in*/, const HitRecord& rec) const override {
+        // Emit if two-sided or if ray strikes the front face
+        if (two_sided_ || rec.front_face) {
+            return emit_;
+        }
+        return Eigen::Vector3f::Zero();
+    }
+
+    bool two_sided() const { return two_sided_; }
+    const Eigen::Vector3f& emit() const { return emit_; }
+
+private:
+    Eigen::Vector3f emit_;
+    bool two_sided_{false};
 };
 
 }  // namespace mfad

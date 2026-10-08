@@ -144,3 +144,19 @@ target_include_directories(test_materials_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )
 add_test(NAME test_materials COMMAND test_materials_runner)
+
+# Test executable for path tracer & Russian roulette (Issue #26)
+add_executable(test_path_tracer_runner tests/test_path_tracer.cpp)
+target_link_libraries(test_path_tracer_runner PRIVATE
+    mfad_core
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+    OpenMP::OpenMP_CXX
+)
+target_include_directories(test_path_tracer_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_path_tracer COMMAND test_path_tracer_runner)
