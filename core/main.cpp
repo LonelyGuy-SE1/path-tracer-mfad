@@ -1,5 +1,4 @@
 #include "camera.hpp"
-#include "hit_record.hpp"
 #include "hittable.hpp"
 #include "image_buffer.hpp"
 #include "material.hpp"
@@ -8,11 +7,8 @@
 #include "quad.hpp"
 #include "ray.hpp"
 #include "sphere.hpp"
-#include "stage_basis.hpp"
 
 #include <Eigen/Dense>
-#include <algorithm>
-#include <cmath>
 #include <iostream>
 #include <memory>
 #include <omp.h>
