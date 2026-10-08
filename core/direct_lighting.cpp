@@ -57,6 +57,75 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
     return L;
 }
 
+namespace {
+
+Eigen::Vector3f shade_direct_ray(const Ray& ray, const Scene& scene,
+                                 const DirectLightingOptions& options, int depth) {
+    if (depth > 8) {
+        return Eigen::Vector3f::Zero();
+    }
+
+    HitRecord rec;
+    if (!scene.hittables.hit(ray, 0.001f, 1e8f, rec)) {
+        // Direct lighting sky model: scaled to harmoniously match ambient/direct lighting levels
+        const Eigen::Vector3f sky_zenith(0.12f, 0.18f, 0.28f);
+        const Eigen::Vector3f sky_horizon(0.24f, 0.28f, 0.35f);
+        const Eigen::Vector3f ground_nadir(0.08f, 0.08f, 0.10f);
+
+        float dir_y = ray.direction.y();
+        if (dir_y >= 0.0f) {
+            float t = dir_y;
+            return (1.0f - t) * sky_horizon + t * sky_zenith;
+        } else {
+            float t = -dir_y;
+            return (1.0f - t) * sky_horizon + t * ground_nadir;
+        }
+    }
+
+    // If surface is specular (Glass/Dielectric or Metal/Mirror), trace reflected/refracted ray
+    if (rec.material != nullptr) {
+        const auto* dielectric = dynamic_cast<const Dielectric*>(rec.material);
+        const auto* metal = dynamic_cast<const Metal*>(rec.material);
+        if (dielectric != nullptr || metal != nullptr) {
+            ScatterRecord srec;
+            if (rec.material->scatter(ray, rec, srec)) {
+                return srec.attenuation.cwiseProduct(
+                    shade_direct_ray(srec.scattered, scene, options, depth + 1));
+            }
+        }
+    }
+
+    // Diffuse surface: evaluate direct Lambertian lighting with point lights and shadow rays
+    Eigen::Vector3f albedo = rec.color;
+    if (rec.material != nullptr) {
+        const auto* lambert = dynamic_cast<const Lambertian*>(rec.material);
+        if (lambert != nullptr) {
+            albedo = lambert->albedo();
+        } else {
+            ScatterRecord srec;
+            Ray dummy_ray(rec.point, rec.normal);
+            if (rec.material->scatter(dummy_ray, rec, srec)) {
+                albedo = srec.attenuation;
+            }
+        }
+    }
+
+    Eigen::Vector3f col = compute_direct_lighting(rec.point, rec.normal, albedo, scene.point_lights,
+                                                  scene.hittables, options);
+
+    // Distance-based atmospheric haze for distant plane hits (smooth exponential blend into
+    // horizon)
+    if (rec.t > 15.0f) {
+        const Eigen::Vector3f sky_horizon(0.24f, 0.28f, 0.35f);
+        float fog = 1.0f - std::exp(-0.04f * (rec.t - 15.0f));
+        col = (1.0f - fog) * col + fog * sky_horizon;
+    }
+
+    return col;
+}
+
+}  // namespace
+
 void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffer& buffer,
                             const DirectLightingOptions& options, int samples_per_pixel) {
     const int width = buffer.width();
@@ -74,33 +143,7 @@ void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffe
                           static_cast<float>(height - 1);
 
                 Ray ray = camera.generate_ray(u, v);
-                HitRecord rec;
-
-                if (scene.hittables.hit(ray, 0.001f, 1e8f, rec)) {
-                    // Extract material albedo
-                    Eigen::Vector3f albedo = rec.color;
-                    if (rec.material != nullptr) {
-                        const auto* lambert = dynamic_cast<const Lambertian*>(rec.material);
-                        if (lambert != nullptr) {
-                            albedo = lambert->albedo();
-                        } else {
-                            ScatterRecord srec;
-                            if (rec.material->scatter(ray, rec, srec)) {
-                                albedo = srec.attenuation;
-                            }
-                        }
-                    }
-
-                    pixel_col +=
-                        compute_direct_lighting(rec.point, rec.normal, albedo, scene.point_lights,
-                                                scene.hittables, options);
-                } else {
-                    // Sky gradient for missed background rays
-                    float t = 0.5f * (ray.direction.y() + 1.0f);
-                    Eigen::Vector3f sky = (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) +
-                                          t * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
-                    pixel_col += 0.2f * sky;
-                }
+                pixel_col += shade_direct_ray(ray, scene, options, 0);
             }
 
             pixel_col /= static_cast<float>(samples_per_pixel);

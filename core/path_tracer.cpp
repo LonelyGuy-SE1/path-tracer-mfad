@@ -15,9 +15,19 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
         HitRecord rec;
         if (!scene.hit(cur_ray, 0.001f, 1e8f, rec)) {
             if (options_.use_sky_gradient) {
-                float t = 0.5f * (cur_ray.direction.y() + 1.0f);
-                Eigen::Vector3f sky = (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) +
-                                      t * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
+                float dir_y = cur_ray.direction.y();
+                const Eigen::Vector3f sky_zenith(0.10f, 0.30f, 0.75f);
+                const Eigen::Vector3f sky_horizon(0.35f, 0.55f, 0.80f);
+                const Eigen::Vector3f ground_nadir(0.12f, 0.12f, 0.15f);
+
+                Eigen::Vector3f sky;
+                if (dir_y >= 0.0f) {
+                    float t = dir_y;
+                    sky = (1.0f - t) * sky_horizon + t * sky_zenith;
+                } else {
+                    float t = -dir_y;
+                    sky = (1.0f - t) * sky_horizon + t * ground_nadir;
+                }
                 L += throughput.cwiseProduct(sky);
             } else {
                 L += throughput.cwiseProduct(options_.background_color);

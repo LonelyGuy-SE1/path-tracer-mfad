@@ -58,34 +58,39 @@ void render_cornell_box() {
     auto mat_glass = std::make_shared<mfad::Dielectric>(1.5f);
     auto mat_mirror = std::make_shared<mfad::Metal>(Eigen::Vector3f(0.9f, 0.9f, 0.9f), 0.0f);
 
-    // Floor (pointing up)
+    // Floor (pointing up +y, from z = -2.5 to z = 1.5)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, -0.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, -2.0f), Eigen::Vector3f::Ones(), mat_white));
+        Eigen::Vector3f(-1.0f, -1.0f, 1.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, -4.0f), Eigen::Vector3f::Ones(), mat_white));
 
-    // Ceiling (pointing down)
+    // Ceiling (pointing down -y)
     scene.add(std::make_shared<mfad::Quad>(
         Eigen::Vector3f(-1.0f, 1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 2.0f), Eigen::Vector3f::Ones(), mat_white));
+        Eigen::Vector3f(0.0f, 0.0f, 4.0f), Eigen::Vector3f::Ones(), mat_white));
 
-    // Ceiling Light (pointing down)
+    // Ceiling Light (pointing down -y)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-0.3f, 0.999f, -1.8f), Eigen::Vector3f(0.6f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 0.6f), Eigen::Vector3f::Ones(), mat_light));
+        Eigen::Vector3f(-0.35f, 0.999f, -1.8f), Eigen::Vector3f(0.7f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, 0.7f), Eigen::Vector3f::Ones(), mat_light));
 
     // Back wall (pointing forward +z)
     scene.add(std::make_shared<mfad::Quad>(
         Eigen::Vector3f(-1.0f, -1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
         Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
 
+    // Front wall behind camera (pointing backward -z)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(1.0f, -1.0f, 1.5f), Eigen::Vector3f(-2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
+
     // Left wall (Red, pointing right +x)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, -0.5f), Eigen::Vector3f(0.0f, 0.0f, -2.0f),
+        Eigen::Vector3f(-1.0f, -1.0f, 1.5f), Eigen::Vector3f(0.0f, 0.0f, -4.0f),
         Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_red));
 
     // Right wall (Green, pointing left -x)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(1.0f, -1.0f, -2.5f), Eigen::Vector3f(0.0f, 0.0f, 2.0f),
+        Eigen::Vector3f(1.0f, -1.0f, -2.5f), Eigen::Vector3f(0.0f, 0.0f, 4.0f),
         Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_green));
 
     // Spheres inside box: glass sphere on left, chrome mirror sphere on right
@@ -209,7 +214,8 @@ int main() {
     demo_scene.print_summary();
 
     // Add floor plane and point light for direct lighting verification
-    auto demo_floor_mat = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.8f, 0.8f, 0.8f));
+    auto demo_floor_mat = std::make_shared<mfad::CheckerMaterial>(
+        Eigen::Vector3f(0.85f, 0.85f, 0.88f), Eigen::Vector3f(0.35f, 0.35f, 0.40f), 2.0f);
     demo_scene.hittables.add(std::make_shared<mfad::Plane>(
         Eigen::Vector3f(0.0f, -0.5f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f),
         Eigen::Vector3f::Ones(), demo_floor_mat));
@@ -231,6 +237,21 @@ int main() {
     const std::string direct_out = "final_demo_direct.png";
     if (direct_image.write_png(direct_out)) {
         std::cout << "[SUCCESS] Rendered final demo direct lighting to " << direct_out << std::endl;
+    }
+
+    // Also render loaded demo scene with full Monte Carlo Path Tracer
+    std::cout << "[INFO] Rendering loaded scene with PathTracer (global illumination + caustics)..."
+              << std::endl;
+    mfad::ImageBuffer pt_image(demo_width, demo_height);
+    mfad::PathTracerOptions pt_opts;
+    pt_opts.use_sky_gradient = true;
+    pt_opts.max_bounces = 16;
+    pt_opts.min_rr_bounces = 3;
+    mfad::PathTracer demo_tracer(pt_opts);
+    demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, 64);
+    const std::string pt_out = "final_demo_pathtraced.png";
+    if (pt_image.write_png(pt_out)) {
+        std::cout << "[SUCCESS] Rendered final demo path tracing to " << pt_out << std::endl;
     }
 
     return 0;

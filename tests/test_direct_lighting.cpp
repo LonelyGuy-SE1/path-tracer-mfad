@@ -111,9 +111,15 @@ void test_render_direct_lighting_scene() {
                                                       Eigen::Vector3f(0.0f, 1.0f, 0.0f),
                                                       Eigen::Vector3f::Ones(), mat_white));
 
-    // Sphere casting a shadow on the floor
-    scene.hittables.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(0.0f, 0.5f, -1.5f), 0.5f,
+    // Spheres resting on floor (y = -0.5): center diffuse red, left glass, right mirror
+    auto mat_glass = std::make_shared<mfad::Dielectric>(1.5f);
+    auto mat_mirror = std::make_shared<mfad::Metal>(Eigen::Vector3f(0.9f, 0.9f, 0.9f), 0.0f);
+    scene.hittables.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(0.0f, 0.0f, -1.5f), 0.5f,
                                                        Eigen::Vector3f::Ones(), mat_red));
+    scene.hittables.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(-1.1f, 0.0f, -1.5f), 0.5f,
+                                                       Eigen::Vector3f::Ones(), mat_glass));
+    scene.hittables.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(1.1f, 0.0f, -1.5f), 0.5f,
+                                                       Eigen::Vector3f::Ones(), mat_mirror));
 
     // Point light positioned above and slightly to the right
     scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 0.0f),
