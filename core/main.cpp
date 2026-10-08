@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "direct_lighting.hpp"
 #include "hittable.hpp"
 #include "image_buffer.hpp"
 #include "material.hpp"
@@ -6,9 +7,11 @@
 #include "plane.hpp"
 #include "quad.hpp"
 #include "ray.hpp"
+#include "scene_loader.hpp"
 #include "sphere.hpp"
 
 #include <Eigen/Dense>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <omp.h>
@@ -192,6 +195,43 @@ int main() {
 
     // 3. Render Cornell Box (Issue #26)
     render_cornell_box();
+
+    // 4. Scene Loader & Direct Lighting Demo (Issue #20 & Issue #24)
+    std::cout << "\n=================================================" << std::endl;
+    std::cout << "  Scene Loader & Direct Lighting (Issue #20, #24) " << std::endl;
+    std::cout << "=================================================" << std::endl;
+    std::string demo_scene_file = "scenes/final_demo.json";
+    if (!std::filesystem::exists(demo_scene_file) &&
+        std::filesystem::exists("../" + demo_scene_file)) {
+        demo_scene_file = "../" + demo_scene_file;
+    }
+    mfad::Scene demo_scene = mfad::SceneLoader::load_from_json(demo_scene_file);
+    demo_scene.print_summary();
+
+    // Add floor plane and point light for direct lighting verification
+    auto demo_floor_mat = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.8f, 0.8f, 0.8f));
+    demo_scene.hittables.add(std::make_shared<mfad::Plane>(
+        Eigen::Vector3f(0.0f, -0.5f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f),
+        Eigen::Vector3f::Ones(), demo_floor_mat));
+    if (demo_scene.point_lights.empty()) {
+        demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 1.5f),
+                                             Eigen::Vector3f(12.0f, 12.0f, 12.0f));
+    }
+
+    const int demo_width = 640;
+    const int demo_height = 360;
+    mfad::ImageBuffer direct_image(demo_width, demo_height);
+    mfad::DirectLightingOptions dl_opts;
+    dl_opts.ambient_color = Eigen::Vector3f(0.08f, 0.08f, 0.10f);
+
+    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (Lambertian + shadow rays)..."
+              << std::endl;
+    mfad::render_direct_lighting(*demo_scene.camera_data.camera, demo_scene, direct_image, dl_opts,
+                                 16);
+    const std::string direct_out = "final_demo_direct.png";
+    if (direct_image.write_png(direct_out)) {
+        std::cout << "[SUCCESS] Rendered final demo direct lighting to " << direct_out << std::endl;
+    }
 
     return 0;
 }

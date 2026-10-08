@@ -20,6 +20,7 @@ struct Ray {
     }
 
     inline Eigen::Vector3f point_at(float t) const { return origin + t * direction; }
+    inline Eigen::Vector3f at(float t) const { return point_at(t); }
 };
 
 }  // namespace mfad
