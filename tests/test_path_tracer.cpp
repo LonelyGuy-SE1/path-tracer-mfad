@@ -144,6 +144,65 @@ void test_russian_roulette_unbiasedness() {
     assert(mean_L.x() > 3.0f && mean_L.x() < 7.0f);
 }
 
+void test_area_light_sampling_soft_shadows() {
+    std::cout << "  Testing area light direct sampling and soft shadows (Issue #27)..."
+              << std::endl;
+    mfad::HittableList scene;
+
+    // Diffuse floor at y = 0
+    auto floor_mat = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.8f, 0.8f, 0.8f));
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-10.0f, 0.0f, 10.0f), Eigen::Vector3f(20.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, -20.0f), Eigen::Vector3f::Ones(), floor_mat));
+
+    // Area light at y = 4, size 2x2
+    auto light_mat = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(20.0f, 20.0f, 20.0f),
+                                                          /*two_sided=*/true);
+    auto quad_light = std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-1.0f, 4.0f, -1.0f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, 2.0f), Eigen::Vector3f::Ones(), light_mat);
+    scene.add(quad_light);
+
+    // Occluding sphere at (0, 2, 0), radius 0.5
+    auto blocker_mat = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.1f, 0.1f, 0.1f));
+    scene.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(0.0f, 2.0f, 0.0f), 0.5f,
+                                             Eigen::Vector3f::Ones(), blocker_mat));
+
+    mfad::PathTracerOptions opts;
+    opts.sample_lights = true;
+    opts.area_lights.push_back(quad_light);
+    opts.max_bounces = 4;
+    mfad::PathTracer tracer(opts);
+
+    // Ray looking at umbra (point on floor at x=0, y=0, z=0 directly below blocker)
+    mfad::Ray r_umbra(Eigen::Vector3f(0.0f, 1.0f, 2.0f),
+                      Eigen::Vector3f(0.0f, -1.0f, -2.0f).normalized());
+    // Ray looking at penumbra (point on floor near shadow edge at x=0.4, y=0, z=0)
+    mfad::Ray r_penumbra(Eigen::Vector3f(0.4f, 1.0f, 2.0f),
+                         Eigen::Vector3f(0.0f, -1.0f, -2.0f).normalized());
+    // Ray looking at unoccluded floor just outside shadow at x=1.0, y=0, z=0
+    mfad::Ray r_lit(Eigen::Vector3f(1.0f, 1.0f, 2.0f),
+                    Eigen::Vector3f(0.0f, -1.0f, -2.0f).normalized());
+
+    Eigen::Vector3f L_umbra = Eigen::Vector3f::Zero();
+    Eigen::Vector3f L_penumbra = Eigen::Vector3f::Zero();
+    Eigen::Vector3f L_lit = Eigen::Vector3f::Zero();
+
+    const int N = 100;
+    for (int i = 0; i < N; ++i) {
+        L_umbra += tracer.trace_ray(r_umbra, scene);
+        L_penumbra += tracer.trace_ray(r_penumbra, scene);
+        L_lit += tracer.trace_ray(r_lit, scene);
+    }
+    L_umbra /= static_cast<float>(N);
+    L_penumbra /= static_cast<float>(N);
+    L_lit /= static_cast<float>(N);
+
+    // Umbra should be darker than penumbra, and penumbra darker than fully lit
+    assert(L_umbra.x() < L_penumbra.x());
+    assert(L_penumbra.x() < L_lit.x());
+}
+
 int main() {
     std::cout << "[TEST] Running PathTracer & Russian Roulette verification tests (Issue #26)..."
               << std::endl;
@@ -151,6 +210,7 @@ int main() {
     test_direct_emission();
     test_furnace_energy_conservation();
     test_russian_roulette_unbiasedness();
+    test_area_light_sampling_soft_shadows();
     std::cout << "[PASS] All PathTracer, Quad, and Russian Roulette tests passed!" << std::endl;
     return 0;
 }

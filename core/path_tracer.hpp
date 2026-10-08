@@ -3,10 +3,13 @@
 #include "camera.hpp"
 #include "hittable.hpp"
 #include "image_buffer.hpp"
+#include "light.hpp"
 #include "material.hpp"
+#include "quad.hpp"
 #include "ray.hpp"
 
 #include <Eigen/Dense>
+#include <vector>
 
 namespace mfad {
 
@@ -17,6 +20,9 @@ struct PathTracerOptions {
     float rr_survival_clamp_max = 0.95f;
     Eigen::Vector3f background_color = Eigen::Vector3f::Zero();
     bool use_sky_gradient = false;
+    bool sample_lights = false;
+    std::vector<std::shared_ptr<Quad>> area_lights;
+    std::vector<PointLight> point_lights;
 };
 
 /**

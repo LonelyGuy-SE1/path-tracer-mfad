@@ -69,9 +69,10 @@ void render_cornell_box() {
         Eigen::Vector3f(0.0f, 0.0f, 4.0f), Eigen::Vector3f::Ones(), mat_white));
 
     // Ceiling Light (pointing down -y)
-    scene.add(std::make_shared<mfad::Quad>(
+    auto ceiling_light = std::make_shared<mfad::Quad>(
         Eigen::Vector3f(-0.35f, 0.999f, -1.8f), Eigen::Vector3f(0.7f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 0.7f), Eigen::Vector3f::Ones(), mat_light));
+        Eigen::Vector3f(0.0f, 0.0f, 0.7f), Eigen::Vector3f::Ones(), mat_light);
+    scene.add(ceiling_light);
 
     // Back wall (pointing forward +z)
     scene.add(std::make_shared<mfad::Quad>(
@@ -110,6 +111,8 @@ void render_cornell_box() {
     opts.rr_survival_clamp_max = 0.95f;
     opts.background_color = Eigen::Vector3f::Zero();
     opts.use_sky_gradient = false;
+    opts.sample_lights = true;
+    opts.area_lights.push_back(ceiling_light);
 
     mfad::PathTracer tracer(opts);
     mfad::ImageBuffer image(width, height);
@@ -181,15 +184,18 @@ int main() {
     // Singular studio key light source for dramatic lighting
     auto mat_studio_light = std::make_shared<mfad::DiffuseLight>(
         Eigen::Vector3f(35.0f, 35.0f, 35.0f), /*two_sided=*/true);
-    scene.add(std::make_shared<mfad::Quad>(
+    auto studio_quad = std::make_shared<mfad::Quad>(
         Eigen::Vector3f(-0.5f, 4.0f, 0.2f), Eigen::Vector3f(2.5f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, -0.4f, 2.0f), Eigen::Vector3f::Ones(), mat_studio_light));
+        Eigen::Vector3f(0.0f, -0.4f, 2.0f), Eigen::Vector3f::Ones(), mat_studio_light);
+    scene.add(studio_quad);
 
     mfad::PathTracerOptions opts_studio;
     opts_studio.max_bounces = 16;
     opts_studio.min_rr_bounces = 3;
     opts_studio.use_sky_gradient = false;
-    opts_studio.background_color = Eigen::Vector3f::Zero();
+    opts_studio.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+    opts_studio.sample_lights = true;
+    opts_studio.area_lights.push_back(studio_quad);
 
     mfad::PathTracer tracer(opts_studio);
     std::cout << "[INFO] Rendering spheres scene with singular key light (" << width << "x"
@@ -221,26 +227,25 @@ int main() {
     mfad::Scene demo_scene = mfad::SceneLoader::load_from_json(demo_scene_file);
     demo_scene.print_summary();
 
-    // Add floor plane and point light for direct lighting verification
+    // Add floor plane and singular corner light for direct lighting verification
     auto demo_floor_mat = std::make_shared<mfad::CheckerMaterial>(
         Eigen::Vector3f(0.85f, 0.85f, 0.88f), Eigen::Vector3f(0.35f, 0.35f, 0.40f), 2.0f);
     demo_scene.hittables.add(std::make_shared<mfad::Plane>(
         Eigen::Vector3f(0.0f, -0.5f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f),
         Eigen::Vector3f::Ones(), demo_floor_mat));
     demo_scene.point_lights.clear();
-    demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 1.5f),
-                                         Eigen::Vector3f(35.0f, 35.0f, 35.0f));
+    demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.2f, 2.8f, 0.5f),
+                                         Eigen::Vector3f(40.0f, 40.0f, 40.0f));
 
     const int demo_width = 640;
     const int demo_height = 360;
     mfad::ImageBuffer direct_image(demo_width, demo_height);
     mfad::DirectLightingOptions dl_opts;
     dl_opts.use_sky_gradient = false;
-    dl_opts.background_color = Eigen::Vector3f::Zero();
-    dl_opts.ambient_color = Eigen::Vector3f(0.01f, 0.01f, 0.015f);
+    dl_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+    dl_opts.ambient_color = Eigen::Vector3f(0.02f, 0.02f, 0.025f);
 
-    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (singular point light, black "
-                 "background)..."
+    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (singular corner light)..."
               << std::endl;
     mfad::render_direct_lighting(*demo_scene.camera_data.camera, demo_scene, direct_image, dl_opts,
                                  16);
@@ -249,25 +254,29 @@ int main() {
         std::cout << "[SUCCESS] Rendered final demo direct lighting to " << direct_out << std::endl;
     }
 
-    // Add physical key area light for Monte Carlo Path Tracer
+    // Add singular physical key area light in the upper corner for Monte Carlo Path Tracer
     auto mat_demo_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(40.0f, 40.0f, 40.0f),
                                                                /*two_sided=*/true);
-    demo_scene.hittables.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(1.0f, 3.8f, 0.5f), Eigen::Vector3f(1.8f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, -0.4f, 1.8f), Eigen::Vector3f::Ones(), mat_demo_light));
+    auto demo_corner_light = std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(1.8f, 2.4f, 0.1f), Eigen::Vector3f(0.8f, 0.0f, 0.6f),
+        Eigen::Vector3f(0.0f, 0.8f, -0.3f), Eigen::Vector3f::Ones(), mat_demo_light);
+    demo_scene.hittables.add(demo_corner_light);
 
-    // Also render loaded demo scene with full Monte Carlo Path Tracer on black background
-    std::cout
-        << "[INFO] Rendering loaded scene with PathTracer (singular key light, black background)..."
-        << std::endl;
+    // Render loaded demo scene with full Monte Carlo Path Tracer using Next Event Estimation
+    const int pt_spp = 512;
+    std::cout << "[INFO] Rendering loaded scene with PathTracer (singular corner light, NEE, "
+              << pt_spp << " spp)..." << std::endl;
     mfad::ImageBuffer pt_image(demo_width, demo_height);
     mfad::PathTracerOptions pt_opts;
     pt_opts.use_sky_gradient = false;
-    pt_opts.background_color = Eigen::Vector3f::Zero();
+    pt_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
     pt_opts.max_bounces = 16;
     pt_opts.min_rr_bounces = 3;
+    pt_opts.sample_lights = true;
+    pt_opts.area_lights.push_back(demo_corner_light);
+
     mfad::PathTracer demo_tracer(pt_opts);
-    demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, 256);
+    demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, pt_spp);
     const std::string pt_out = "final_demo_pathtraced.png";
     if (pt_image.write_png(pt_out)) {
         std::cout << "[SUCCESS] Rendered final demo path tracing to " << pt_out << std::endl;

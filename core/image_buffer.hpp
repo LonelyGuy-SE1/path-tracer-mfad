@@ -27,6 +27,13 @@ public:
      */
     bool write_png(const std::string& filepath, float gamma = 2.2f) const;
 
+    /**
+     * @brief Writes image to Radiance HDR (.hdr) format storing 32-bit linear floating point RGB
+     * (Issue #30).
+     * @param filepath Destination path (.hdr).
+     */
+    bool write_hdr(const std::string& filepath) const;
+
     const std::vector<Eigen::Vector3f>& data() const { return pixels_; }
 
 private:
