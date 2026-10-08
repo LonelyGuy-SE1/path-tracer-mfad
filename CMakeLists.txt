@@ -160,3 +160,29 @@ target_include_directories(test_path_tracer_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )
 add_test(NAME test_path_tracer COMMAND test_path_tracer_runner)
+
+# Test executable for stage transforms and stage interface (Issue #4, #10)
+add_executable(test_transforms_runner tests/test_transforms.cpp)
+target_link_libraries(test_transforms_runner PRIVATE
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+)
+target_include_directories(test_transforms_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_transforms COMMAND test_transforms_runner)
+
+# Test executable for stage projection (Issue #13)
+add_executable(test_projection_runner tests/test_projection.cpp)
+target_link_libraries(test_projection_runner PRIVATE
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+)
+target_include_directories(test_projection_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_projection COMMAND test_projection_runner)
