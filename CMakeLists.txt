@@ -186,3 +186,36 @@ target_include_directories(test_projection_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )
 add_test(NAME test_projection COMMAND test_projection_runner)
+
+# Test executable for scene loader (Issue #20)
+add_executable(test_scene_loader_runner tests/test_scene_loader.cpp)
+target_link_libraries(test_scene_loader_runner PRIVATE
+    mfad_core
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+    nlohmann_json::nlohmann_json
+)
+target_include_directories(test_scene_loader_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_scene_loader COMMAND test_scene_loader_runner)
+set_tests_properties(test_scene_loader PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+# Test executable for direct lighting and shadow rays (Issue #24)
+add_executable(test_direct_lighting_runner tests/test_direct_lighting.cpp)
+target_link_libraries(test_direct_lighting_runner PRIVATE
+    mfad_core
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+    OpenMP::OpenMP_CXX
+)
+target_include_directories(test_direct_lighting_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_direct_lighting COMMAND test_direct_lighting_runner)
