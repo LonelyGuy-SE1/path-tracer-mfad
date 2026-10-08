@@ -28,6 +28,11 @@ public:
     const Eigen::Vector3f& color() const { return color_; }
     std::shared_ptr<Material> material() const { return material_; }
 
+    Eigen::Vector3f sample_point(float u_rand, float v_rand) const {
+        return Q_ + u_rand * u_ + v_rand * v_;
+    }
+    float pdf_point() const { return area_ > 0.0f ? 1.0f / area_ : 0.0f; }
+
 private:
     Eigen::Vector3f Q_;
     Eigen::Vector3f u_;

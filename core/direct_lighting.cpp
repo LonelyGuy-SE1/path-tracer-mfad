@@ -57,6 +57,115 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
     return L;
 }
 
+namespace {
+
+Eigen::Vector3f shade_direct_ray(const Ray& ray, const Scene& scene,
+                                 const DirectLightingOptions& options, int depth) {
+    if (depth > 8) {
+        return Eigen::Vector3f::Zero();
+    }
+
+    HitRecord rec;
+    if (!scene.hittables.hit(ray, 0.001f, 1e8f, rec)) {
+        if (options.use_sky_gradient) {
+            const Eigen::Vector3f sky_zenith(0.12f, 0.18f, 0.28f);
+            const Eigen::Vector3f sky_horizon(0.24f, 0.28f, 0.35f);
+            const Eigen::Vector3f ground_nadir(0.08f, 0.08f, 0.10f);
+
+            float dir_y = ray.direction.y();
+            if (dir_y >= 0.0f) {
+                float t = dir_y;
+                return (1.0f - t) * sky_horizon + t * sky_zenith;
+            } else {
+                float t = -dir_y;
+                return (1.0f - t) * sky_horizon + t * ground_nadir;
+            }
+        }
+        return options.background_color;
+    }
+
+    // Check if surface is directly emissive (Light source)
+    if (rec.material != nullptr) {
+        Eigen::Vector3f emit = rec.material->emitted(ray, rec);
+        if (emit.squaredNorm() > 1e-4f) {
+            return emit;
+        }
+    }
+
+    // If surface is specular (Glass/Dielectric or Metal/Mirror), trace reflected/refracted ray
+    if (rec.material != nullptr) {
+        const auto* dielectric = dynamic_cast<const Dielectric*>(rec.material);
+        if (dielectric != nullptr) {
+            float ir = dielectric->refraction_index();
+            float refraction_ratio = rec.front_face ? (1.0f / ir) : ir;
+            Eigen::Vector3f unit_dir = ray.direction.normalized();
+            float cos_theta = std::min(-unit_dir.dot(rec.normal), 1.0f);
+            float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
+            bool cannot_refract = (refraction_ratio * sin_theta > 1.0f);
+            float refl_prob = reflectance(cos_theta, refraction_ratio);
+
+            Eigen::Vector3f refl_dir = reflect(unit_dir, rec.normal);
+            Ray refl_ray(rec.point + 1e-4f * rec.normal, refl_dir);
+
+            if (cannot_refract) {
+                return shade_direct_ray(refl_ray, scene, options, depth + 1);
+            }
+
+            Eigen::Vector3f refr_dir;
+            if (refract(unit_dir, rec.normal, refraction_ratio, refr_dir)) {
+                Eigen::Vector3f offset_dir =
+                    (refr_dir.dot(rec.normal) > 0.0f) ? rec.normal : -rec.normal;
+                Ray refr_ray(rec.point + 1e-4f * offset_dir, refr_dir);
+                return refl_prob * shade_direct_ray(refl_ray, scene, options, depth + 1) +
+                       (1.0f - refl_prob) * shade_direct_ray(refr_ray, scene, options, depth + 1);
+            } else {
+                return shade_direct_ray(refl_ray, scene, options, depth + 1);
+            }
+        }
+
+        const auto* metal = dynamic_cast<const Metal*>(rec.material);
+        if (metal != nullptr) {
+            ScatterRecord srec;
+            if (rec.material->scatter(ray, rec, srec)) {
+                return srec.attenuation.cwiseProduct(
+                    shade_direct_ray(srec.scattered, scene, options, depth + 1));
+            }
+        }
+    }
+
+    // Diffuse surface: evaluate direct Lambertian lighting with point lights and shadow rays
+    Eigen::Vector3f albedo = rec.color;
+    if (rec.material != nullptr) {
+        const auto* lambert = dynamic_cast<const Lambertian*>(rec.material);
+        if (lambert != nullptr) {
+            albedo = lambert->albedo();
+        } else {
+            ScatterRecord srec;
+            Ray dummy_ray(rec.point, rec.normal);
+            if (rec.material->scatter(dummy_ray, rec, srec)) {
+                albedo = srec.attenuation;
+            }
+        }
+    }
+
+    Eigen::Vector3f col = compute_direct_lighting(rec.point, rec.normal, albedo, scene.point_lights,
+                                                  scene.hittables, options);
+
+    // Distance-based atmospheric haze for distant plane hits (smooth exponential blend into horizon
+    // or background)
+    if (rec.t > 15.0f) {
+        const Eigen::Vector3f target_bg = options.use_sky_gradient
+                                              ? Eigen::Vector3f(0.24f, 0.28f, 0.35f)
+                                              : options.background_color;
+        float fog = 1.0f - std::exp(-0.04f * (rec.t - 15.0f));
+        col = (1.0f - fog) * col + fog * target_bg;
+    }
+
+    return col;
+}
+
+}  // namespace
+
 void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffer& buffer,
                             const DirectLightingOptions& options, int samples_per_pixel) {
     const int width = buffer.width();
@@ -74,33 +183,7 @@ void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffe
                           static_cast<float>(height - 1);
 
                 Ray ray = camera.generate_ray(u, v);
-                HitRecord rec;
-
-                if (scene.hittables.hit(ray, 0.001f, 1e8f, rec)) {
-                    // Extract material albedo
-                    Eigen::Vector3f albedo = rec.color;
-                    if (rec.material != nullptr) {
-                        const auto* lambert = dynamic_cast<const Lambertian*>(rec.material);
-                        if (lambert != nullptr) {
-                            albedo = lambert->albedo();
-                        } else {
-                            ScatterRecord srec;
-                            if (rec.material->scatter(ray, rec, srec)) {
-                                albedo = srec.attenuation;
-                            }
-                        }
-                    }
-
-                    pixel_col +=
-                        compute_direct_lighting(rec.point, rec.normal, albedo, scene.point_lights,
-                                                scene.hittables, options);
-                } else {
-                    // Sky gradient for missed background rays
-                    float t = 0.5f * (ray.direction.y() + 1.0f);
-                    Eigen::Vector3f sky = (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) +
-                                          t * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
-                    pixel_col += 0.2f * sky;
-                }
+                pixel_col += shade_direct_ray(ray, scene, options, 0);
             }
 
             pixel_col /= static_cast<float>(samples_per_pixel);

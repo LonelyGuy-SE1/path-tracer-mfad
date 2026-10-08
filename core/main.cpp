@@ -58,34 +58,40 @@ void render_cornell_box() {
     auto mat_glass = std::make_shared<mfad::Dielectric>(1.5f);
     auto mat_mirror = std::make_shared<mfad::Metal>(Eigen::Vector3f(0.9f, 0.9f, 0.9f), 0.0f);
 
-    // Floor (pointing up)
+    // Floor (pointing up +y, from z = -2.5 to z = 1.5)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, -0.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, -2.0f), Eigen::Vector3f::Ones(), mat_white));
+        Eigen::Vector3f(-1.0f, -1.0f, 1.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, -4.0f), Eigen::Vector3f::Ones(), mat_white));
 
-    // Ceiling (pointing down)
+    // Ceiling (pointing down -y)
     scene.add(std::make_shared<mfad::Quad>(
         Eigen::Vector3f(-1.0f, 1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 2.0f), Eigen::Vector3f::Ones(), mat_white));
+        Eigen::Vector3f(0.0f, 0.0f, 4.0f), Eigen::Vector3f::Ones(), mat_white));
 
-    // Ceiling Light (pointing down)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-0.3f, 0.999f, -1.8f), Eigen::Vector3f(0.6f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 0.6f), Eigen::Vector3f::Ones(), mat_light));
+    // Ceiling Light (pointing down -y)
+    auto ceiling_light = std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-0.35f, 0.999f, -1.8f), Eigen::Vector3f(0.7f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, 0.7f), Eigen::Vector3f::Ones(), mat_light);
+    scene.add(ceiling_light);
 
     // Back wall (pointing forward +z)
     scene.add(std::make_shared<mfad::Quad>(
         Eigen::Vector3f(-1.0f, -1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
         Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
 
+    // Front wall behind camera (pointing backward -z)
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(1.0f, -1.0f, 1.5f), Eigen::Vector3f(-2.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
+
     // Left wall (Red, pointing right +x)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, -0.5f), Eigen::Vector3f(0.0f, 0.0f, -2.0f),
+        Eigen::Vector3f(-1.0f, -1.0f, 1.5f), Eigen::Vector3f(0.0f, 0.0f, -4.0f),
         Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_red));
 
     // Right wall (Green, pointing left -x)
     scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(1.0f, -1.0f, -2.5f), Eigen::Vector3f(0.0f, 0.0f, 2.0f),
+        Eigen::Vector3f(1.0f, -1.0f, -2.5f), Eigen::Vector3f(0.0f, 0.0f, 4.0f),
         Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_green));
 
     // Spheres inside box: glass sphere on left, chrome mirror sphere on right
@@ -105,6 +111,8 @@ void render_cornell_box() {
     opts.rr_survival_clamp_max = 0.95f;
     opts.background_color = Eigen::Vector3f::Zero();
     opts.use_sky_gradient = false;
+    opts.sample_lights = true;
+    opts.area_lights.push_back(ceiling_light);
 
     mfad::PathTracer tracer(opts);
     mfad::ImageBuffer image(width, height);
@@ -164,7 +172,7 @@ int main() {
     // Camera setup
     const int width = 640;
     const int height = 360;
-    const int samples_per_pixel = 32;
+    const int samples_per_pixel = 128;
 
     mfad::ImageBuffer image(width, height);
     mfad::Camera camera(Eigen::Vector3f(0.0f, 0.4f, 2.2f),   // Eye
@@ -173,14 +181,25 @@ int main() {
                         45.0f,                               // Vertical FOV
                         static_cast<float>(width) / static_cast<float>(height));
 
-    mfad::PathTracerOptions opts_outdoor;
-    opts_outdoor.max_bounces = 16;
-    opts_outdoor.min_rr_bounces = 3;
-    opts_outdoor.use_sky_gradient = true;
+    // Singular studio key light source for dramatic lighting
+    auto mat_studio_light = std::make_shared<mfad::DiffuseLight>(
+        Eigen::Vector3f(35.0f, 35.0f, 35.0f), /*two_sided=*/true);
+    auto studio_quad = std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-0.5f, 4.0f, 0.2f), Eigen::Vector3f(2.5f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, -0.4f, 2.0f), Eigen::Vector3f::Ones(), mat_studio_light);
+    scene.add(studio_quad);
 
-    mfad::PathTracer tracer(opts_outdoor);
-    std::cout << "[INFO] Rendering outdoor spheres scene (" << width << "x" << height << ", "
-              << samples_per_pixel << " spp)..." << std::endl;
+    mfad::PathTracerOptions opts_studio;
+    opts_studio.max_bounces = 16;
+    opts_studio.min_rr_bounces = 3;
+    opts_studio.use_sky_gradient = false;
+    opts_studio.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+    opts_studio.sample_lights = true;
+    opts_studio.area_lights.push_back(studio_quad);
+
+    mfad::PathTracer tracer(opts_studio);
+    std::cout << "[INFO] Rendering spheres scene with singular key light (" << width << "x"
+              << height << ", " << samples_per_pixel << " spp)..." << std::endl;
     tracer.render(camera, scene, image, samples_per_pixel);
 
     const std::string scene_output = "spheres_on_plane.png";
@@ -208,29 +227,59 @@ int main() {
     mfad::Scene demo_scene = mfad::SceneLoader::load_from_json(demo_scene_file);
     demo_scene.print_summary();
 
-    // Add floor plane and point light for direct lighting verification
-    auto demo_floor_mat = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.8f, 0.8f, 0.8f));
+    // Add floor plane and singular corner light for direct lighting verification
+    auto demo_floor_mat = std::make_shared<mfad::CheckerMaterial>(
+        Eigen::Vector3f(0.85f, 0.85f, 0.88f), Eigen::Vector3f(0.35f, 0.35f, 0.40f), 2.0f);
     demo_scene.hittables.add(std::make_shared<mfad::Plane>(
         Eigen::Vector3f(0.0f, -0.5f, 0.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f),
         Eigen::Vector3f::Ones(), demo_floor_mat));
-    if (demo_scene.point_lights.empty()) {
-        demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 1.5f),
-                                             Eigen::Vector3f(12.0f, 12.0f, 12.0f));
-    }
+    demo_scene.point_lights.clear();
+    demo_scene.point_lights.emplace_back(Eigen::Vector3f(2.2f, 2.8f, 0.5f),
+                                         Eigen::Vector3f(40.0f, 40.0f, 40.0f));
 
     const int demo_width = 640;
     const int demo_height = 360;
     mfad::ImageBuffer direct_image(demo_width, demo_height);
     mfad::DirectLightingOptions dl_opts;
-    dl_opts.ambient_color = Eigen::Vector3f(0.08f, 0.08f, 0.10f);
+    dl_opts.use_sky_gradient = false;
+    dl_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+    dl_opts.ambient_color = Eigen::Vector3f(0.02f, 0.02f, 0.025f);
 
-    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (Lambertian + shadow rays)..."
+    std::cout << "[INFO] Rendering loaded scene with Direct Lighting (singular corner light)..."
               << std::endl;
     mfad::render_direct_lighting(*demo_scene.camera_data.camera, demo_scene, direct_image, dl_opts,
                                  16);
     const std::string direct_out = "final_demo_direct.png";
     if (direct_image.write_png(direct_out)) {
         std::cout << "[SUCCESS] Rendered final demo direct lighting to " << direct_out << std::endl;
+    }
+
+    // Add singular physical key area light in the upper corner for Monte Carlo Path Tracer
+    auto mat_demo_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(40.0f, 40.0f, 40.0f),
+                                                               /*two_sided=*/true);
+    auto demo_corner_light = std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(1.8f, 2.4f, 0.1f), Eigen::Vector3f(0.8f, 0.0f, 0.6f),
+        Eigen::Vector3f(0.0f, 0.8f, -0.3f), Eigen::Vector3f::Ones(), mat_demo_light);
+    demo_scene.hittables.add(demo_corner_light);
+
+    // Render loaded demo scene with full Monte Carlo Path Tracer using Next Event Estimation
+    const int pt_spp = 512;
+    std::cout << "[INFO] Rendering loaded scene with PathTracer (singular corner light, NEE, "
+              << pt_spp << " spp)..." << std::endl;
+    mfad::ImageBuffer pt_image(demo_width, demo_height);
+    mfad::PathTracerOptions pt_opts;
+    pt_opts.use_sky_gradient = false;
+    pt_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+    pt_opts.max_bounces = 16;
+    pt_opts.min_rr_bounces = 3;
+    pt_opts.sample_lights = true;
+    pt_opts.area_lights.push_back(demo_corner_light);
+
+    mfad::PathTracer demo_tracer(pt_opts);
+    demo_tracer.render(*demo_scene.camera_data.camera, demo_scene.hittables, pt_image, pt_spp);
+    const std::string pt_out = "final_demo_pathtraced.png";
+    if (pt_image.write_png(pt_out)) {
+        std::cout << "[SUCCESS] Rendered final demo path tracing to " << pt_out << std::endl;
     }
 
     return 0;

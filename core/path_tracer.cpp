@@ -10,14 +10,25 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
     Eigen::Vector3f L = Eigen::Vector3f::Zero();
     Eigen::Vector3f throughput = Eigen::Vector3f::Ones();
     Ray cur_ray = r;
+    bool prev_was_specular = true;
 
     for (int bounce = 0; bounce < options_.max_bounces; ++bounce) {
         HitRecord rec;
         if (!scene.hit(cur_ray, 0.001f, 1e8f, rec)) {
             if (options_.use_sky_gradient) {
-                float t = 0.5f * (cur_ray.direction.y() + 1.0f);
-                Eigen::Vector3f sky = (1.0f - t) * Eigen::Vector3f(1.0f, 1.0f, 1.0f) +
-                                      t * Eigen::Vector3f(0.5f, 0.7f, 1.0f);
+                float dir_y = cur_ray.direction.y();
+                const Eigen::Vector3f sky_zenith(0.10f, 0.30f, 0.75f);
+                const Eigen::Vector3f sky_horizon(0.35f, 0.55f, 0.80f);
+                const Eigen::Vector3f ground_nadir(0.12f, 0.12f, 0.15f);
+
+                Eigen::Vector3f sky;
+                if (dir_y >= 0.0f) {
+                    float t = dir_y;
+                    sky = (1.0f - t) * sky_horizon + t * sky_zenith;
+                } else {
+                    float t = -dir_y;
+                    sky = (1.0f - t) * sky_horizon + t * ground_nadir;
+                }
                 L += throughput.cwiseProduct(sky);
             } else {
                 L += throughput.cwiseProduct(options_.background_color);
@@ -27,7 +38,12 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
 
         // Add emission from surface
         if (rec.material != nullptr) {
-            L += throughput.cwiseProduct(rec.material->emitted(cur_ray, rec));
+            Eigen::Vector3f emit = rec.material->emitted(cur_ray, rec);
+            if (!emit.isZero()) {
+                if (!options_.sample_lights || prev_was_specular) {
+                    L += throughput.cwiseProduct(emit);
+                }
+            }
         }
 
         // Scatter ray
@@ -36,6 +52,85 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
             break;
         }
 
+        // Check if current material is specular (dielectric or metal)
+        bool is_specular = (dynamic_cast<const Dielectric*>(rec.material) != nullptr ||
+                            dynamic_cast<const Metal*>(rec.material) != nullptr);
+
+        // Direct light sampling (Next Event Estimation) on diffuse surfaces
+        if (options_.sample_lights && !is_specular) {
+            const float pi = static_cast<float>(M_PI);
+            const Eigen::Vector3f albedo = srec.attenuation;
+
+            // Sample Area Lights (Quads)
+            for (const auto& light_quad : options_.area_lights) {
+                if (!light_quad || !light_quad->material()) {
+                    continue;
+                }
+                auto diff_light = dynamic_cast<const DiffuseLight*>(light_quad->material().get());
+                if (!diff_light) {
+                    continue;
+                }
+
+                // Sample random point on quad light
+                Eigen::Vector3f light_pt = light_quad->sample_point(random_float(), random_float());
+                Eigen::Vector3f d = light_pt - rec.point;
+                float dist_sq = d.squaredNorm();
+                float dist = std::sqrt(dist_sq);
+                if (dist < 1e-4f) {
+                    continue;
+                }
+
+                Eigen::Vector3f dir = d / dist;
+                float cos_theta_s = rec.normal.dot(dir);
+                if (cos_theta_s <= 0.0f) {
+                    continue;
+                }
+
+                float cos_theta_l = -light_quad->normal().dot(dir);
+                if (diff_light->two_sided()) {
+                    cos_theta_l = std::abs(cos_theta_l);
+                }
+                if (cos_theta_l <= 0.0f) {
+                    continue;
+                }
+
+                // Cast shadow ray to check occlusion
+                Ray shadow_ray(rec.point + 1e-4f * rec.normal, dir);
+                HitRecord occluder;
+                if (!scene.hit(shadow_ray, 0.001f, dist - 0.001f, occluder)) {
+                    float G = (cos_theta_s * cos_theta_l) / dist_sq;
+                    float area = light_quad->area();
+                    Eigen::Vector3f Le = diff_light->emit();
+                    L += (G * area / pi) * throughput.cwiseProduct(albedo).cwiseProduct(Le);
+                }
+            }
+
+            // Sample Point Lights
+            for (const auto& pl : options_.point_lights) {
+                Eigen::Vector3f d = pl.position - rec.point;
+                float dist_sq = d.squaredNorm();
+                float dist = std::sqrt(dist_sq);
+                if (dist < 1e-4f) {
+                    continue;
+                }
+
+                Eigen::Vector3f dir = d / dist;
+                float cos_theta_s = rec.normal.dot(dir);
+                if (cos_theta_s <= 0.0f) {
+                    continue;
+                }
+
+                Ray shadow_ray(rec.point + 1e-4f * rec.normal, dir);
+                HitRecord occluder;
+                if (!scene.hit(shadow_ray, 0.001f, dist - 0.001f, occluder)) {
+                    float atten = 1.0f / dist_sq;
+                    L += (cos_theta_s * atten / pi) *
+                         throughput.cwiseProduct(albedo).cwiseProduct(pl.intensity);
+                }
+            }
+        }
+
+        prev_was_specular = is_specular;
         throughput = throughput.cwiseProduct(srec.attenuation);
         cur_ray = srec.scattered;
 

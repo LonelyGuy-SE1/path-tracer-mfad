@@ -47,4 +47,18 @@ bool ImageBuffer::write_png(const std::string& filepath, float gamma) const {
     return stbi_write_png(filepath.c_str(), width_, height_, 3, bytes.data(), width_ * 3) != 0;
 }
 
+bool ImageBuffer::write_hdr(const std::string& filepath) const {
+    std::vector<float> float_data(width_ * height_ * 3);
+    for (int y = 0; y < height_; ++y) {
+        for (int x = 0; x < width_; ++x) {
+            const Eigen::Vector3f& c = pixels_[y * width_ + x];
+            int idx = (y * width_ + x) * 3;
+            float_data[idx + 0] = c.x();
+            float_data[idx + 1] = c.y();
+            float_data[idx + 2] = c.z();
+        }
+    }
+    return stbi_write_hdr(filepath.c_str(), width_, height_, 3, float_data.data()) != 0;
+}
+
 }  // namespace mfad

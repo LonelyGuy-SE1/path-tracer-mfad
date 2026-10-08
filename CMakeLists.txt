@@ -219,3 +219,16 @@ target_include_directories(test_direct_lighting_runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trace
 )
 add_test(NAME test_direct_lighting COMMAND test_direct_lighting_runner)
+
+# Test executable for SVD denoise (Issue #18)
+add_executable(test_svd_denoise_runner tests/test_svd_denoise.cpp)
+target_link_libraries(test_svd_denoise_runner PRIVATE
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+)
+target_include_directories(test_svd_denoise_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_svd_denoise COMMAND test_svd_denoise_runner)
