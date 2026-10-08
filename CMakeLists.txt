@@ -119,6 +119,19 @@ target_include_directories(test_basis_runner PRIVATE
 )
 add_test(NAME test_basis COMMAND test_basis_runner)
 
+# Test executable for stage_projection
+add_executable(test_projection_runner tests/test_projection.cpp)
+target_link_libraries(test_projection_runner PRIVATE
+    mfad_stages
+    mfad_trace
+    Eigen3::Eigen
+)
+target_include_directories(test_projection_runner PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/stages
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace
+)
+add_test(NAME test_projection COMMAND test_projection_runner)
+
 # Test executable for intersections
 add_executable(test_intersections_runner tests/test_intersections.cpp)
 target_link_libraries(test_intersections_runner PRIVATE
