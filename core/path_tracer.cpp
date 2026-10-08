@@ -42,8 +42,8 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
         // Russian Roulette termination (unbiased)
         if (bounce >= options_.min_rr_bounces) {
             // Photometric luminance: Y = 0.2126 R + 0.7152 G + 0.0722 B
-            float p_survive = 0.2126f * throughput.x() + 0.7152f * throughput.y() +
-                              0.0722f * throughput.z();
+            float p_survive =
+                0.2126f * throughput.x() + 0.7152f * throughput.y() + 0.0722f * throughput.z();
             p_survive = std::clamp(p_survive, options_.rr_survival_clamp_min,
                                    options_.rr_survival_clamp_max);
 

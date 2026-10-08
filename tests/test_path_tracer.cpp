@@ -114,16 +114,14 @@ void test_russian_roulette_unbiasedness() {
     auto mat_diffuse = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.5f, 0.5f, 0.5f));
 
     // Ceiling light at y = 1, pointing down (u x v = (10, 0, 0) x (0, 0, 10) = (0, -100, 0))
-    scene.add(std::make_shared<mfad::Quad>(Eigen::Vector3f(-5.0f, 1.0f, -5.0f),
-                                           Eigen::Vector3f(10.0f, 0.0f, 0.0f),
-                                           Eigen::Vector3f(0.0f, 0.0f, 10.0f),
-                                           Eigen::Vector3f::Ones(), mat_light));
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-5.0f, 1.0f, -5.0f), Eigen::Vector3f(10.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, 10.0f), Eigen::Vector3f::Ones(), mat_light));
 
     // Floor diffuse at y = -1, pointing up (u x v = (10, 0, 0) x (0, 0, -10) = (0, 100, 0))
-    scene.add(std::make_shared<mfad::Quad>(Eigen::Vector3f(-5.0f, -1.0f, 5.0f),
-                                           Eigen::Vector3f(10.0f, 0.0f, 0.0f),
-                                           Eigen::Vector3f(0.0f, 0.0f, -10.0f),
-                                           Eigen::Vector3f::Ones(), mat_diffuse));
+    scene.add(std::make_shared<mfad::Quad>(
+        Eigen::Vector3f(-5.0f, -1.0f, 5.0f), Eigen::Vector3f(10.0f, 0.0f, 0.0f),
+        Eigen::Vector3f(0.0f, 0.0f, -10.0f), Eigen::Vector3f::Ones(), mat_diffuse));
 
     mfad::PathTracerOptions opts;
     opts.max_bounces = 32;
@@ -140,9 +138,9 @@ void test_russian_roulette_unbiasedness() {
     }
     Eigen::Vector3f mean_L = sum_L / static_cast<float>(N);
 
-    // Bounces off floor (albedo 0.5) directly to ceiling (10.0) gives first bounce contribution ~ 5.0.
-    // Plus subsequent bounces back and forth: 5.0 / (1 - 0.5 * 0) = 5.0
-    // Mean should be around 5.0
+    // Bounces off floor (albedo 0.5) directly to ceiling (10.0) gives first bounce contribution
+    // ~ 5.0. Plus subsequent bounces back and forth: 5.0 / (1 - 0.5 * 0) = 5.0 Mean should be
+    // around 5.0
     assert(mean_L.x() > 3.0f && mean_L.x() < 7.0f);
 }
 
