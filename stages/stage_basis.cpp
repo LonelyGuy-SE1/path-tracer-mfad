@@ -56,6 +56,69 @@ BasisResult stage_basis_normal(const Eigen::Vector3d& normal, Trace* trace,
     return res;
 }
 
+BasisResult stage_basis_gram_schmidt(const Eigen::Vector3d& normal,
+                                     const Eigen::Vector3d& guide,
+                                     Trace* trace,
+                                     const std::string& item_name) {
+    Eigen::Vector3d n = normal.normalized();
+
+    // Remove the component of guide along the normal
+    Eigen::Vector3d g = guide - guide.dot(n) * n;
+
+    // Guide parallel (or zero): fall back to another axis
+    bool parallel_singularity = (g.squaredNorm() < 1e-12);
+    if (parallel_singularity) {
+        Eigen::Vector3d alt =
+            (std::abs(n.x()) < 0.9)
+                ? Eigen::Vector3d(1.0, 0.0, 0.0)
+                : Eigen::Vector3d(0.0, 1.0, 0.0);
+        g = alt - alt.dot(n) * n;
+    }
+
+    Eigen::Vector3d t = g.normalized();
+    Eigen::Vector3d b = n.cross(t);  // right-handed, det(Q) = +1
+
+    BasisResult res;
+    res.tangent = t;
+    res.bitangent = b;
+    res.normal = n;
+
+    res.Q.col(0) = t;
+    res.Q.col(1) = b;
+    res.Q.col(2) = n;
+
+    if (trace != nullptr) {
+        Eigen::Matrix3d QtQ = res.Q.transpose() * res.Q;
+        double QtQ_error =
+            (QtQ - Eigen::Matrix3d::Identity()).cwiseAbs().maxCoeff();
+        bool QtQ_is_identity = (QtQ_error < 1e-12);
+
+        double det = res.Q.determinant();
+        bool det_is_one = (std::abs(det - 1.0) < 1e-12);
+
+        Eigen::Vector3d v_test(1.0, 2.0, -3.0);
+        v_test.normalize();
+        Eigen::Vector3d v_world = res.to_world(v_test);
+        Eigen::Vector3d v_recovered = res.to_local(v_world);
+        double roundtrip_error =
+            (v_recovered - v_test).cwiseAbs().maxCoeff();
+        bool roundtrip_is_identity = (roundtrip_error < 1e-12);
+
+        trace->record_matrix(
+            "basis", item_name, res.Q,
+            "Gram-Schmidt orthonormal basis from normal and guide [T, B, N]",
+            {{"QtQ_error", QtQ_error},
+             {"QtQ_is_identity", QtQ_is_identity},
+             {"det", det},
+             {"det_is_one", det_is_one},
+             {"roundtrip_error", roundtrip_error},
+             {"roundtrip_is_identity", roundtrip_is_identity},
+             {"parallel_singularity_handled", parallel_singularity}});
+    }
+
+    return res;
+}
+
 BasisResult stage_basis_camera(const Eigen::Vector3d& look_from,
                                const Eigen::Vector3d& look_at,
                                const Eigen::Vector3d& up,
