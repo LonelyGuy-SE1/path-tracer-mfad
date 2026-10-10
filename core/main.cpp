@@ -50,82 +50,37 @@ void render_initial_gradient(const std::string& out_path) {
     }
 }
 
-void render_cornell_box(const std::string& out_path) {
+void render_cornell_box(const std::string& out_path, const std::string& root_dir) {
     std::cout << "\n[TEST 2] Cornell Box Path Tracing Validation (Issue #26)..." << std::endl;
-    const int width = 400;
-    const int height = 400;
+    std::string cb_scene_file = root_dir + "/scenes/cornell_box.json";
+    if (!std::filesystem::exists(cb_scene_file)) {
+        cb_scene_file = "scenes/cornell_box.json";
+    }
+
+    const int width = 640;
+    const int height = 360;
     const int samples_per_pixel = 128;
 
-    mfad::HittableList scene;
-
-    // Materials
-    auto mat_red = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.65f, 0.05f, 0.05f));
-    auto mat_green = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.12f, 0.45f, 0.15f));
-    auto mat_white = std::make_shared<mfad::Lambertian>(Eigen::Vector3f(0.73f, 0.73f, 0.73f));
-    auto mat_light = std::make_shared<mfad::DiffuseLight>(Eigen::Vector3f(15.0f, 15.0f, 15.0f),
-                                                          /*two_sided=*/true);
-    auto mat_glass = std::make_shared<mfad::Dielectric>(1.5f);
-    auto mat_mirror = std::make_shared<mfad::Metal>(Eigen::Vector3f(0.9f, 0.9f, 0.9f), 0.0f);
-
-    // Floor (pointing up +y)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, 1.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, -4.0f), Eigen::Vector3f::Ones(), mat_white));
-
-    // Ceiling (pointing down -y)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, 1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 4.0f), Eigen::Vector3f::Ones(), mat_white));
-
-    // Ceiling Light (pointing down -y)
-    auto ceiling_light = std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-0.35f, 0.999f, -1.8f), Eigen::Vector3f(0.7f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 0.0f, 0.7f), Eigen::Vector3f::Ones(), mat_light);
-    scene.add(ceiling_light);
-
-    // Back wall (pointing forward +z)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, -2.5f), Eigen::Vector3f(2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
-
-    // Front wall behind camera (pointing backward -z)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(1.0f, -1.0f, 1.5f), Eigen::Vector3f(-2.0f, 0.0f, 0.0f),
-        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_white));
-
-    // Left wall (Red, pointing right +x)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(-1.0f, -1.0f, 1.5f), Eigen::Vector3f(0.0f, 0.0f, -4.0f),
-        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_red));
-
-    // Right wall (Green, pointing left -x)
-    scene.add(std::make_shared<mfad::Quad>(
-        Eigen::Vector3f(1.0f, -1.0f, -2.5f), Eigen::Vector3f(0.0f, 0.0f, 4.0f),
-        Eigen::Vector3f(0.0f, 2.0f, 0.0f), Eigen::Vector3f::Ones(), mat_green));
-
-    // Spheres inside box: glass sphere on left, chrome mirror sphere on right
-    scene.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(-0.45f, -0.6f, -1.4f), 0.4f,
-                                             Eigen::Vector3f::Ones(), mat_glass));
-    scene.add(std::make_shared<mfad::Sphere>(Eigen::Vector3f(0.45f, -0.6f, -1.8f), 0.4f,
-                                             Eigen::Vector3f::Ones(), mat_mirror));
-
-    // Camera setup for Cornell box
-    mfad::Camera camera(Eigen::Vector3f(0.0f, 0.0f, 1.4f), Eigen::Vector3f(0.0f, 0.0f, -1.5f),
-                        Eigen::Vector3f(0.0f, 1.0f, 0.0f), 55.0f, 1.0f);
+    std::cout << "[INFO] Loading Cornell Box scene from " << cb_scene_file << std::endl;
+    mfad::Scene cb_scene =
+        mfad::SceneLoader::load_from_json(cb_scene_file, static_cast<double>(width) / height);
+    cb_scene.print_summary();
+    cb_scene.hittables.build_bvh();
 
     mfad::PathTracerOptions opts;
-    opts.max_bounces = 32;
+    opts.max_bounces = 16;
     opts.min_rr_bounces = 3;
-    opts.rr_survival_clamp_min = 0.05f;
-    opts.rr_survival_clamp_max = 0.95f;
     opts.background_color = Eigen::Vector3f::Zero();
     opts.use_sky_gradient = false;
     opts.sample_lights = true;
-    opts.area_lights.push_back(ceiling_light);
+    for (auto& quad : cb_scene.area_lights) {
+        opts.area_lights.push_back(std::dynamic_pointer_cast<mfad::Quad>(quad));
+    }
+    opts.point_lights = cb_scene.point_lights;
 
     mfad::PathTracer tracer(opts);
     mfad::ImageBuffer image(width, height);
-    tracer.render(camera, scene, image, samples_per_pixel);
+    tracer.render(*cb_scene.camera_data.camera, cb_scene.hittables, image, samples_per_pixel);
 
     if (image.write_png(out_path)) {
         std::cout << "[SUCCESS] Saved Cornell Box to " << out_path << std::endl;
@@ -157,7 +112,7 @@ int main() {
 
     // 2. Cornell Box Path Tracing benchmark test (Issue #26)
     const std::string cornell_out = root_dir + "/cornell_box.png";
-    render_cornell_box(cornell_out);
+    render_cornell_box(cornell_out, root_dir);
 
     // 3. Unified Final Demo Scene Pipeline (Issue #7, #8, #18, #20, #24)
     std::cout << "\n=================================================" << std::endl;
