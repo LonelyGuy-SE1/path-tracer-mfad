@@ -45,5 +45,4 @@ AABB Sphere::bounding_box() const {
     return AABB(center_ - Eigen::Vector3f(radius_, radius_, radius_),
                 center_ + Eigen::Vector3f(radius_, radius_, radius_));
 }
-}
-
+}  // namespace mfad

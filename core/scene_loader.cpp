@@ -1,8 +1,7 @@
 #include "scene_loader.hpp"
+
 #include "plane.hpp"
 #include "quad.hpp"
-
-
 #include "stages/stage_projection.hpp"
 #include "stages/stage_transforms.hpp"
 
@@ -209,10 +208,14 @@ Scene SceneLoader::load_from_json(const std::string& filepath, double aspect_rat
                 Eigen::Vector3f color2(0.2f, 0.2f, 0.2f);
                 float scale = 2.0f;
                 if (mat_j.contains("color2") && mat_j["color2"].is_array()) {
-                    color2 = Eigen::Vector3f(mat_j["color2"][0].get<float>(), mat_j["color2"][1].get<float>(), mat_j["color2"][2].get<float>());
+                    color2 = Eigen::Vector3f(mat_j["color2"][0].get<float>(),
+                                             mat_j["color2"][1].get<float>(),
+                                             mat_j["color2"][2].get<float>());
                 }
-                if (mat_j.contains("scale")) scale = mat_j["scale"].get<float>();
-                mdata.material = std::make_shared<CheckerMaterial>(mdata.albedo.cast<float>(), color2, scale);
+                if (mat_j.contains("scale"))
+                    scale = mat_j["scale"].get<float>();
+                mdata.material =
+                    std::make_shared<CheckerMaterial>(mdata.albedo.cast<float>(), color2, scale);
             } else if (mdata.type == "diffuse" || mdata.type == "lambertian") {
                 mdata.material = std::make_shared<Lambertian>(mdata.albedo.cast<float>());
             } else if (mdata.type == "glass" || mdata.type == "dielectric") {
@@ -423,36 +426,44 @@ Scene SceneLoader::load_from_json(const std::string& filepath, double aspect_rat
         }
     }
 
-    
     // Parse Planes
     if (j.contains("planes") && j["planes"].is_array()) {
         for (const auto& p_j : j["planes"]) {
-            Eigen::Vector3f point(0,0,0);
-            Eigen::Vector3f normal(0,1,0);
-            if (p_j.contains("point")) point = Eigen::Vector3f(p_j["point"][0], p_j["point"][1], p_j["point"][2]);
-            if (p_j.contains("normal")) normal = Eigen::Vector3f(p_j["normal"][0], p_j["normal"][1], p_j["normal"][2]);
+            Eigen::Vector3f point(0, 0, 0);
+            Eigen::Vector3f normal(0, 1, 0);
+            if (p_j.contains("point"))
+                point = Eigen::Vector3f(p_j["point"][0], p_j["point"][1], p_j["point"][2]);
+            if (p_j.contains("normal"))
+                normal = Eigen::Vector3f(p_j["normal"][0], p_j["normal"][1], p_j["normal"][2]);
             std::string mat_name = p_j.value("material", "default");
-            std::shared_ptr<Material> mat = scene.materials.count(mat_name) ? scene.materials[mat_name].material : nullptr;
-            scene.hittables.add(std::make_shared<Plane>(point, normal, Eigen::Vector3f::Ones(), mat));
+            std::shared_ptr<Material> mat =
+                scene.materials.count(mat_name) ? scene.materials[mat_name].material : nullptr;
+            scene.hittables.add(
+                std::make_shared<Plane>(point, normal, Eigen::Vector3f::Ones(), mat));
         }
     }
 
     // Parse Quads
     if (j.contains("quads") && j["quads"].is_array()) {
         for (const auto& q_j : j["quads"]) {
-            Eigen::Vector3f Q(0,0,0), u(1,0,0), v(0,1,0);
-            if (q_j.contains("Q")) Q = Eigen::Vector3f(q_j["Q"][0], q_j["Q"][1], q_j["Q"][2]);
-            if (q_j.contains("u")) u = Eigen::Vector3f(q_j["u"][0], q_j["u"][1], q_j["u"][2]);
-            if (q_j.contains("v")) v = Eigen::Vector3f(q_j["v"][0], q_j["v"][1], q_j["v"][2]);
+            Eigen::Vector3f Q(0, 0, 0), u(1, 0, 0), v(0, 1, 0);
+            if (q_j.contains("Q"))
+                Q = Eigen::Vector3f(q_j["Q"][0], q_j["Q"][1], q_j["Q"][2]);
+            if (q_j.contains("u"))
+                u = Eigen::Vector3f(q_j["u"][0], q_j["u"][1], q_j["u"][2]);
+            if (q_j.contains("v"))
+                v = Eigen::Vector3f(q_j["v"][0], q_j["v"][1], q_j["v"][2]);
             std::string mat_name = q_j.value("material", "default");
-            std::shared_ptr<Material> mat = scene.materials.count(mat_name) ? scene.materials[mat_name].material : nullptr;
+            std::shared_ptr<Material> mat =
+                scene.materials.count(mat_name) ? scene.materials[mat_name].material : nullptr;
             auto quad = std::make_shared<Quad>(Q, u, v, Eigen::Vector3f::Ones(), mat);
             scene.hittables.add(quad);
             if (mat && mat_name.find("light") != std::string::npos) {
                 scene.area_lights.push_back(quad);
             }
-            
-            // If it's a light, add it to Area Lights? We'll let main.cpp extract Area Lights from hittables!
+
+            // If it's a light, add it to Area Lights? We'll let main.cpp extract Area Lights from
+            // hittables!
         }
     }
 

@@ -126,7 +126,8 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
                 float t_max = dist - pl.radius - 0.001f;
                 bool occluded = false;
                 if (t_max > 0.001f && scene.hit(shadow_ray, 0.001f, t_max, occluder)) {
-                    if (!occluder.material || occluder.material->emitted(shadow_ray, occluder).squaredNorm() <= 1e-4f) {
+                    if (!occluder.material ||
+                        occluder.material->emitted(shadow_ray, occluder).squaredNorm() <= 1e-4f) {
                         occluded = true;
                     }
                 }
@@ -190,11 +191,13 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
         {
             ++rows_done;
             if (rows_done % (height / 10 + 1) == 0 || rows_done == height) {
-                std::cerr << "\r[PathTracer] Progress: " << (100 * rows_done / height) << "%" << std::flush;
+                std::cerr << "\r[PathTracer] Progress: " << (100 * rows_done / height) << "%"
+                          << std::flush;
             }
         }
     }
-    if (height > 0) std::cerr << std::endl;
+    if (height > 0)
+        std::cerr << std::endl;
 }
 
 }  // namespace mfad

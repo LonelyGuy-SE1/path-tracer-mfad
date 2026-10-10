@@ -1,8 +1,8 @@
 #pragma once
 
+#include "aabb.hpp"
 #include "hit_record.hpp"
 #include "ray.hpp"
-#include "aabb.hpp"
 
 #include <memory>
 #include <vector>
@@ -36,7 +36,8 @@ public:
     bool hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const override;
 
     AABB bounding_box() const override {
-        if (objects_.empty()) return AABB();
+        if (objects_.empty())
+            return AABB();
         AABB temp_box = objects_[0]->bounding_box();
         for (size_t i = 1; i < objects_.size(); i++) {
             temp_box = AABB::surrounding_box(temp_box, objects_[i]->bounding_box());

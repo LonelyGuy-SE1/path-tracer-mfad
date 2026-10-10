@@ -1,11 +1,12 @@
 #include "bvh.hpp"
+
 #include <algorithm>
 #include <iostream>
 
 namespace mfad {
 
 std::shared_ptr<BVHNode> BVHNode::build(std::vector<std::shared_ptr<Hittable>>& objects,
-                                         size_t start, size_t end) {
+                                        size_t start, size_t end) {
     auto node = std::make_shared<BVHNode>();
     size_t count = end - start;
 

@@ -1,5 +1,7 @@
 #include "camera.hpp"
+
 #include "stage_basis.hpp"
+
 #include <cmath>
 #include <random>
 
@@ -11,14 +13,15 @@ inline Eigen::Vector2f random_in_unit_disk() {
     thread_local std::uniform_real_distribution<float> dis(0.0f, 1.0f);
     while (true) {
         Eigen::Vector2f p(2.0f * dis(gen) - 1.0f, 2.0f * dis(gen) - 1.0f);
-        if (p.squaredNorm() < 1.0f) return p;
+        if (p.squaredNorm() < 1.0f)
+            return p;
     }
 }
 }  // namespace
 
 Camera::Camera(const Eigen::Vector3f& look_from, const Eigen::Vector3f& look_at,
-               const Eigen::Vector3f& up, float vfov_degrees, float aspect_ratio,
-               float aperture, float focus_dist) 
+               const Eigen::Vector3f& up, float vfov_degrees, float aspect_ratio, float aperture,
+               float focus_dist)
     : aperture_(aperture) {
     origin_ = look_from;
     lens_radius_ = aperture / 2.0f;
@@ -44,7 +47,8 @@ Camera::Camera(const Eigen::Vector3f& look_from, const Eigen::Vector3f& look_at,
 
     horizontal_ = 2.0f * half_width * focus_dist_ * u_;
     vertical_ = 2.0f * half_height * focus_dist_ * v_;
-    lower_left_corner_ = origin_ - half_width * focus_dist_ * u_ - half_height * focus_dist_ * v_ - focus_dist_ * w_;
+    lower_left_corner_ =
+        origin_ - half_width * focus_dist_ * u_ - half_height * focus_dist_ * v_ - focus_dist_ * w_;
 }
 
 Ray Camera::generate_ray(float s, float t) const {

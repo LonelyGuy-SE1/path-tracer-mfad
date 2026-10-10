@@ -111,10 +111,9 @@ jobs:
 
       - name: Verify Generated Render Artifacts
         run: |
-          test -s step1_gradient.png || (echo "step1_gradient.png missing or empty" && exit 1)
-          test -s step2_spheres_on_plane.png || (echo "step2_spheres_on_plane.png missing or empty" && exit 1)
-          test -s step4_final_demo_direct.png || (echo "step4_final_demo_direct.png missing or empty" && exit 1)
-          test -s step5_final_demo_pathtraced.png || (echo "step5_final_demo_pathtraced.png missing or empty" && exit 1)
+          test -s final_demo_direct.png || (echo "final_demo_direct.png missing or empty" && exit 1)
+          test -s final_demo_pathtraced.png || (echo "final_demo_pathtraced.png missing or empty" && exit 1)
+          test -s final_demo_denoised.png || (echo "final_demo_denoised.png missing or empty" && exit 1)
           echo "Render artifacts successfully generated!"
 
       - name: Upload Render Artifacts
@@ -123,10 +122,9 @@ jobs:
         with:
           name: rendered-images
           path: |
-            step1_gradient.png
-            step2_spheres_on_plane.png
-            step4_final_demo_direct.png
-            step5_final_demo_pathtraced.png
+            final_demo_direct.png
+            final_demo_pathtraced.png
+            final_demo_denoised.png
           if-no-files-found: error
 
   python-tests:

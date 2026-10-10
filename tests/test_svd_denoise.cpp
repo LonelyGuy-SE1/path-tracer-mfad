@@ -65,11 +65,9 @@ void test_multichannel_svd_denoise() {
     std::cout << "  Testing multi-channel RGB image denoising..." << std::endl;
     const int H = 16;
     const int W = 16;
-    std::vector<Eigen::MatrixXd> channels = {
-        Eigen::MatrixXd::Random(H, W),
-        Eigen::MatrixXd::Random(H, W),
-        Eigen::MatrixXd::Random(H, W)
-    };
+    std::vector<Eigen::MatrixXd> channels = {Eigen::MatrixXd::Random(H, W),
+                                             Eigen::MatrixXd::Random(H, W),
+                                             Eigen::MatrixXd::Random(H, W)};
 
     auto res = mfad::stage_svd_denoise_image(channels, 4);
     assert(res.success);

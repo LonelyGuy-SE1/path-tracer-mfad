@@ -37,5 +37,4 @@ AABB Plane::bounding_box() const {
     float inf = std::numeric_limits<float>::max();
     return AABB(Eigen::Vector3f(-inf, -inf, -inf), Eigen::Vector3f(inf, inf, inf));
 }
-}
-
+}  // namespace mfad

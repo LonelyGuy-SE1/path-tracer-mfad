@@ -41,17 +41,17 @@ bool ImageBuffer::write_png(const std::string& filepath, float gamma, bool apply
                 float e = 0.14f;
                 return std::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
             };
-            
+
             float rc = std::max(0.0f, c.x());
             float gc = std::max(0.0f, c.y());
             float bc = std::max(0.0f, c.z());
-            
+
             if (apply_aces) {
                 rc = aces_tonemap(rc);
                 gc = aces_tonemap(gc);
                 bc = aces_tonemap(bc);
             }
-            
+
             float r = std::pow(std::clamp(rc, 0.0f, 1.0f), inv_gamma);
             float g = std::pow(std::clamp(gc, 0.0f, 1.0f), inv_gamma);
             float b_ch = std::pow(std::clamp(bc, 0.0f, 1.0f), inv_gamma);

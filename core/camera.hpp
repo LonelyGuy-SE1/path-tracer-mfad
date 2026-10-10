@@ -15,8 +15,8 @@ namespace mfad {
 class Camera {
 public:
     Camera(const Eigen::Vector3f& look_from, const Eigen::Vector3f& look_at,
-           const Eigen::Vector3f& up, float vfov_degrees, float aspect_ratio,
-           float aperture = 0.0f, float focus_dist = -1.0f);
+           const Eigen::Vector3f& up, float vfov_degrees, float aspect_ratio, float aperture = 0.0f,
+           float focus_dist = -1.0f);
 
     /**
      * @brief Generates a ray for screen coordinates (s, t) in [0.0, 1.0].

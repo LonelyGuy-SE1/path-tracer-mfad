@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pytest
-from viewer.view_trace import format_record, format_trace, view_trace_file
+
 import numpy as np
+
+from viewer.view_trace import format_record, format_trace, view_trace_file
 
 
 def test_format_record():

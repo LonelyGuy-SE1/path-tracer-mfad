@@ -31,10 +31,12 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
         float t_max = static_cast<float>(s_res.distance - light.radius - options.shadow_epsilon);
 
         HitRecord occluder_rec;
-        bool in_shadow = !options.disable_shadows &&
-                         (t_max > static_cast<float>(options.shadow_epsilon)) &&
-                         scene.hit(shadow_ray, static_cast<float>(options.shadow_epsilon), t_max, occluder_rec) &&
-                         !(occluder_rec.material && occluder_rec.material->emitted(shadow_ray, occluder_rec).squaredNorm() > 1e-4f);
+        bool in_shadow =
+            (t_max > static_cast<float>(options.shadow_epsilon)) &&
+            scene.hit(shadow_ray, static_cast<float>(options.shadow_epsilon), t_max,
+                      occluder_rec) &&
+            !(occluder_rec.material &&
+              occluder_rec.material->emitted(shadow_ray, occluder_rec).squaredNorm() > 1e-4f);
 
         if (!in_shadow) {
             // Step 3: Compute Lambertian diffuse cosine factor using stage_diffuse_term
@@ -198,11 +200,13 @@ void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffe
         {
             ++rows_done;
             if (rows_done % (height / 10 + 1) == 0 || rows_done == height) {
-                std::cerr << "\r[DirectLighting] Progress: " << (100 * rows_done / height) << "%" << std::flush;
+                std::cerr << "\r[DirectLighting] Progress: " << (100 * rows_done / height) << "%"
+                          << std::flush;
             }
         }
     }
-    if (height > 0) std::cerr << std::endl;
+    if (height > 0)
+        std::cerr << std::endl;
 }
 
 }  // namespace mfad

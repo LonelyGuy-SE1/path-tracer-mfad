@@ -62,5 +62,4 @@ AABB Quad::bounding_box() const {
     Eigen::Vector3f padding = Eigen::Vector3f::Constant(1e-4f);
     return AABB(min_pt - padding, max_pt + padding);
 }
-}
-
+}  // namespace mfad

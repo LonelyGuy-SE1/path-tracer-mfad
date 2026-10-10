@@ -106,7 +106,8 @@ public:
             std::string bin_path = filepath;
             size_t dot_pos = bin_path.find_last_of('.');
             size_t slash_pos = bin_path.find_last_of("/\\");
-            if (dot_pos != std::string::npos && (slash_pos == std::string::npos || dot_pos > slash_pos)) {
+            if (dot_pos != std::string::npos &&
+                (slash_pos == std::string::npos || dot_pos > slash_pos)) {
                 bin_path = bin_path.substr(0, dot_pos) + ".bin";
             } else {
                 bin_path += ".bin";

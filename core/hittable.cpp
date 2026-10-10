@@ -1,4 +1,5 @@
 #include "hittable.hpp"
+
 #include "bvh.hpp"
 
 namespace mfad {
