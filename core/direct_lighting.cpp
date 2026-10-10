@@ -32,7 +32,7 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
 
         HitRecord occluder_rec;
         bool in_shadow =
-            (t_max > static_cast<float>(options.shadow_epsilon)) &&
+            options.enable_shadows && (t_max > static_cast<float>(options.shadow_epsilon)) &&
             scene.hit(shadow_ray, static_cast<float>(options.shadow_epsilon), t_max,
                       occluder_rec) &&
             !(occluder_rec.material &&
