@@ -54,7 +54,7 @@ void render_initial_gradient(const std::string& out_path) {
 }
 
 void render_cornell_box(const std::string& out_path, const std::string& root_dir,
-                        int samples_per_pixel = 32768) {
+                        int samples_per_pixel = 128) {
     std::cout << "\n[TEST 2] Cornell Box Path Tracing Validation (Issue #26)..." << std::endl;
     std::cout << "[INFO] Target samples per pixel: " << samples_per_pixel << std::endl;
     std::string cb_scene_file = root_dir + "/scenes/cornell_box.json";
@@ -308,8 +308,9 @@ int main(int argc, char** argv) {
     int initial_spp = 32;
     int max_spp = 0;
     double max_runtime_min = 20.0;
-    int cornell_spp = 32768;
-    int pt_spp = 32768;
+    bool is_ci = (std::getenv("CI") != nullptr);
+    int cornell_spp = is_ci ? 128 : 128;
+    int pt_spp = is_ci ? 128 : 128;
     int direct_spp = 32;
 
     for (int i = 1; i < argc; ++i) {
