@@ -82,17 +82,24 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/_deps
-          key: ${{ runner.os }}-${{ matrix.compiler }}-fetchcontent-${{ hashFiles('CMakeLists.txt') }}
+          key: v2-${{ runner.os }}-${{ matrix.compiler }}-fetchcontent-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.compiler }}-fetchcontent-
+            v2-${{ runner.os }}-${{ matrix.compiler }}-fetchcontent-
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ${{ runner.os }}-${{ matrix.compiler }}-ccache-${{ github.sha }}
+          key: v2-${{ runner.os }}-${{ matrix.compiler }}-ccache-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.compiler }}-ccache-
+            v2-${{ runner.os }}-${{ matrix.compiler }}-ccache-
+
+      - name: Clean Stale FetchContent Subbuilds
+        run: |
+          if [ -d "build/_deps" ]; then
+            find build/_deps -name "CMakeCache.txt" -delete || true
+            find build/_deps -type d -name "*-subbuild" -exec rm -rf {} + || true
+          fi
 
       - name: Configure CMake
         run: |
