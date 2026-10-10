@@ -89,6 +89,58 @@ void render_cornell_box(const std::string& out_path, const std::string& root_dir
     }
 }
 
+void render_raw_frame(const std::string& out_path, const mfad::Scene& scene, int width,
+                      int height) {
+    std::cout << "\n[INFO] Stage 0: Rendering Raw Canvas (pre-pathtracing, unshadowed geometry)..."
+              << std::endl;
+    mfad::ImageBuffer raw_image(width, height);
+
+    Eigen::Vector3f light_pos = scene.point_lights.empty() ? Eigen::Vector3f(-1.65f, 0.92f, -0.89f)
+                                                           : scene.point_lights[0].position;
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width);
+            float v = (static_cast<float>(height - 1 - y) + 0.5f) / static_cast<float>(height);
+            mfad::Ray ray = scene.camera_data.camera->generate_ray(u, v);
+
+            mfad::HitRecord rec;
+            if (!scene.hittables.hit(ray, 0.001f, 1e8f, rec)) {
+                raw_image.set_pixel(x, y, Eigen::Vector3f(0.015f, 0.015f, 0.02f));
+                continue;
+            }
+
+            // Emissive light source shows as glowing white sphere
+            if (rec.material != nullptr) {
+                Eigen::Vector3f emit = rec.material->emitted(ray, rec);
+                if (emit.squaredNorm() > 1e-4f) {
+                    raw_image.set_pixel(x, y, Eigen::Vector3f(1.0f, 1.0f, 1.0f));
+                    continue;
+                }
+            }
+
+            // Raw material base color / albedo
+            Eigen::Vector3f base = rec.material ? rec.material->base_color(rec) : rec.color;
+
+            // Direct light direction from top-left light source (unshadowed diffuse + ambient)
+            // No shadow rays cast -> zero shadows on floor or objects
+            Eigen::Vector3f light_dir = (light_pos - rec.point).normalized();
+            float cos_theta = std::max(0.0f, rec.normal.dot(light_dir));
+            Eigen::Vector3f col = base.cwiseProduct(Eigen::Vector3f(0.25f, 0.25f, 0.25f) +
+                                                    0.75f * cos_theta * Eigen::Vector3f::Ones());
+
+            raw_image.set_pixel(x, y, col);
+        }
+    }
+
+    if (raw_image.write_png(out_path)) {
+        std::cout << "[SUCCESS] Saved Raw Canvas to " << out_path << std::endl;
+    } else {
+        std::cerr << "[ERROR] Failed to save " << out_path << std::endl;
+    }
+}
+
 int main() {
     std::cout << "=================================================" << std::endl;
     std::cout << "  MFAD Linear Algebra Path Tracer                " << std::endl;
@@ -129,9 +181,18 @@ int main() {
     const int width = 640;
     const int height = 360;
 
+    const std::string raw_out = root_dir + "/final_demo_raw.png";
     const std::string direct_out = root_dir + "/final_demo_direct.png";
     const std::string pathtraced_out = root_dir + "/final_demo_pathtraced.png";
     const std::string denoised_out = root_dir + "/final_demo_denoised.png";
+
+    // -------------------------------------------------------------
+    // Stage 0: Raw Canvas Frame (pre-pathtracing, unshadowed geometry)
+    // -------------------------------------------------------------
+    render_raw_frame(raw_out, scene, width, height);
+    std::error_code ec;
+    std::filesystem::copy_file(raw_out, root_dir + "/initial_canvas.png",
+                               std::filesystem::copy_options::overwrite_existing, ec);
 
     // -------------------------------------------------------------
     // Stage 1: Direct Lighting (Whitted reflection/refraction + shadow rays)

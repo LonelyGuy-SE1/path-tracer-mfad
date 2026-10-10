@@ -48,6 +48,9 @@ public:
     virtual Eigen::Vector3f emitted(const Ray& /*r_in*/, const HitRecord& /*rec*/) const {
         return Eigen::Vector3f::Zero();
     }
+    virtual Eigen::Vector3f base_color(const HitRecord& /*rec*/) const {
+        return Eigen::Vector3f::Constant(0.8f);
+    }
 };
 
 /**
@@ -116,6 +119,7 @@ public:
     }
 
     const Eigen::Vector3f& albedo() const { return albedo_; }
+    Eigen::Vector3f base_color(const HitRecord& /*rec*/) const override { return albedo_; }
 
 private:
     Eigen::Vector3f albedo_;
@@ -139,6 +143,13 @@ public:
         srec.scattered = Ray(rec.point + 1e-4f * rec.normal, scatter_dir);
         srec.attenuation = albedo;
         return true;
+    }
+
+    Eigen::Vector3f base_color(const HitRecord& rec) const override {
+        int cx = static_cast<int>(std::floor(rec.point.x() * scale_));
+        int cz = static_cast<int>(std::floor(rec.point.z() * scale_));
+        bool is_even = ((cx + cz) % 2 + 2) % 2 == 0;
+        return is_even ? color1_ : color2_;
     }
 
 private:
@@ -165,6 +176,8 @@ public:
         srec.attenuation = albedo_;
         return srec.scattered.direction.dot(rec.normal) > 0.0f;
     }
+
+    Eigen::Vector3f base_color(const HitRecord& /*rec*/) const override { return albedo_; }
 
 private:
     Eigen::Vector3f albedo_;
@@ -212,6 +225,9 @@ public:
     }
 
     float refraction_index() const { return ir_; }
+    Eigen::Vector3f base_color(const HitRecord& /*rec*/) const override {
+        return Eigen::Vector3f(0.85f, 0.92f, 1.0f);
+    }
 
 private:
     float ir_;
@@ -240,6 +256,9 @@ public:
 
     bool two_sided() const { return two_sided_; }
     const Eigen::Vector3f& emit() const { return emit_; }
+    Eigen::Vector3f base_color(const HitRecord& /*rec*/) const override {
+        return emit_.cwiseMin(Eigen::Vector3f::Ones());
+    }
 
 private:
     Eigen::Vector3f emit_;
