@@ -59,7 +59,7 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
 
         // Direct light sampling (Next Event Estimation) on diffuse surfaces
         if (options_.sample_lights && !is_specular) {
-            const float pi = static_cast<float>(M_PI);
+            constexpr float pi = 3.14159265358979323846f;
             const Eigen::Vector3f albedo = srec.attenuation;
 
             // Sample Area Lights (Quads)

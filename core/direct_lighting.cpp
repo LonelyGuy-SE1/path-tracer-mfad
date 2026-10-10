@@ -16,7 +16,7 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
     // Ambient illumination: L_ambient = albedo * ambient_color
     Eigen::Vector3f L = albedo.cwiseProduct(options.ambient_color);
 
-    const float pi = static_cast<float>(M_PI);
+    constexpr float pi = 3.14159265358979323846f;
     for (const auto& light : lights) {
         // Step 1: Use stage_shadow_direction to compute light direction, distance, and acne-free
         // offset origin

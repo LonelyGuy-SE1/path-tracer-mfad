@@ -28,19 +28,19 @@ bool ImageBuffer::write_png(const std::string& filepath, float gamma, bool apply
     std::vector<unsigned char> bytes(width_ * height_ * 3);
     const float inv_gamma = 1.0f / gamma;
 
+    // ACES filmic tone mapping
+    auto aces_tonemap = [](float x) -> float {
+        constexpr float a = 2.51f;
+        constexpr float b = 0.03f;
+        constexpr float c = 2.43f;
+        constexpr float d = 0.59f;
+        constexpr float e = 0.14f;
+        return std::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
+    };
+
     for (int y = 0; y < height_; ++y) {
         for (int x = 0; x < width_; ++x) {
             const Eigen::Vector3f& c = pixels_[y * width_ + x];
-
-            // ACES filmic tone mapping followed by sRGB gamma correction
-            auto aces_tonemap = [](float x) -> float {
-                float a = 2.51f;
-                float b = 0.03f;
-                float c = 2.43f;
-                float d = 0.59f;
-                float e = 0.14f;
-                return std::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
-            };
 
             float rc = std::max(0.0f, c.x());
             float gc = std::max(0.0f, c.y());

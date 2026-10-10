@@ -12,7 +12,7 @@ std::shared_ptr<BVHNode> BVHNode::build(std::vector<std::shared_ptr<Hittable>>& 
 
     if (count == 1) {
         node->left_ = objects[start];
-        node->right_ = objects[start];
+        node->right_ = nullptr;
         node->box_ = objects[start]->bounding_box();
         return node;
     }
@@ -50,8 +50,8 @@ bool BVHNode::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const 
         return false;
     }
 
-    bool hit_left = left_->hit(r, t_min, t_max, rec);
-    bool hit_right = right_->hit(r, t_min, hit_left ? rec.t : t_max, rec);
+    bool hit_left = left_ && left_->hit(r, t_min, t_max, rec);
+    bool hit_right = right_ && right_->hit(r, t_min, hit_left ? rec.t : t_max, rec);
     return hit_left || hit_right;
 }
 

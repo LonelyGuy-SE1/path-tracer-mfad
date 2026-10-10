@@ -32,17 +32,15 @@ bool Sphere::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const {
     rec.t = root;
     rec.point = r.point_at(rec.t);
     Eigen::Vector3f outward_normal = (rec.point - center_) / radius_;
-    rec.set_face_normal(r, outward_normal.normalized());
+    rec.set_face_normal(r, outward_normal);
     rec.color = color_;
     rec.material = material_.get();
     return true;
 }
 
-}  // namespace mfad
-
-namespace mfad {
 AABB Sphere::bounding_box() const {
     return AABB(center_ - Eigen::Vector3f(radius_, radius_, radius_),
                 center_ + Eigen::Vector3f(radius_, radius_, radius_));
 }
+
 }  // namespace mfad
