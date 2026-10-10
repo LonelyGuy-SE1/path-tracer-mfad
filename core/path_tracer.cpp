@@ -123,7 +123,14 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
 
                 Ray shadow_ray(rec.point + 1e-4f * rec.normal, dir);
                 HitRecord occluder;
-                if (!scene.hit(shadow_ray, 0.001f, dist - 0.001f, occluder)) {
+                float t_max = dist - pl.radius - 0.001f;
+                bool occluded = false;
+                if (t_max > 0.001f && scene.hit(shadow_ray, 0.001f, t_max, occluder)) {
+                    if (!occluder.material || occluder.material->emitted(shadow_ray, occluder).squaredNorm() <= 1e-4f) {
+                        occluded = true;
+                    }
+                }
+                if (!occluded) {
                     float atten = 1.0f / dist_sq;
                     L += (cos_theta_s * atten / pi) *
                          throughput.cwiseProduct(albedo).cwiseProduct(pl.intensity);
@@ -162,6 +169,7 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
     const int width = buffer.width();
     const int height = buffer.height();
 
+    int rows_done = 0;
 #pragma omp parallel for schedule(dynamic, 8)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -180,7 +188,6 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
         }
 #pragma omp critical
         {
-            static int rows_done = 0;
             ++rows_done;
             if (rows_done % (height / 10 + 1) == 0 || rows_done == height) {
                 std::cerr << "\r[PathTracer] Progress: " << (100 * rows_done / height) << "%" << std::flush;

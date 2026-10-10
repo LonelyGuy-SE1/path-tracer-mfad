@@ -19,6 +19,7 @@ struct DirectLightingOptions {
     double shadow_epsilon{1e-4};
     Trace* trace{nullptr};
     bool use_sky_gradient{false};
+    bool disable_shadows{false};
     Eigen::Vector3f background_color{Eigen::Vector3f::Zero()};
 };
 

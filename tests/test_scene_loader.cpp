@@ -90,26 +90,26 @@ void test_load_final_demo_scene() {
     std::cout << "[TEST] Loading " << path << "..." << std::endl;
     mfad::Scene scene = mfad::SceneLoader::load_from_json(path, 16.0 / 9.0);
 
-    TEST_ASSERT(scene.object_count() == 3);
+    TEST_ASSERT(scene.object_count() == 5);
     TEST_ASSERT(scene.meshes.size() == 1);
-    TEST_ASSERT(scene.quadrics.size() == 2);
+    TEST_ASSERT(scene.quadrics.size() == 4);
     TEST_ASSERT(scene.meshes[0].triangles.size() ==
                 12);  // Clean cube.obj has 6 quad faces = 12 tris
 
     // Test ray-geometry intersection against loaded scene hittables
-    // Ray towards ball (sphere at [1.1, 0, -1])
-    mfad::Ray ray_ball(Eigen::Vector3f(1.1f, 0.0f, 2.0f), Eigen::Vector3f(0.0f, 0.0f, -1.0f));
-    mfad::HitRecord rec_ball;
-    bool hit_ball = scene.hittables.hit(ray_ball, 0.001f, 100.0f, rec_ball);
-    TEST_ASSERT(hit_ball);
-    TEST_ASSERT(std::abs(rec_ball.point.x() - 1.1f) < 1e-3f);
-    TEST_ASSERT(std::abs(rec_ball.point.z() - (-0.5f)) < 1e-3f);  // center - radius = -1 - (-0.5)
+    // Ray towards sphere_right (sphere at [1.15, 0, -1])
+    mfad::Ray ray_right(Eigen::Vector3f(1.15f, 0.0f, 2.0f), Eigen::Vector3f(0.0f, 0.0f, -1.0f));
+    mfad::HitRecord rec_right;
+    bool hit_right = scene.hittables.hit(ray_right, 0.001f, 100.0f, rec_right);
+    TEST_ASSERT(hit_right);
+    TEST_ASSERT(std::abs(rec_right.point.x() - 1.15f) < 1e-3f);
+    TEST_ASSERT(std::abs(rec_right.point.z() - (-0.5f)) < 1e-3f);  // center - radius = -1 - (-0.5)
 
-    // Ray towards egg (ellipsoid at [-1.1, 0, -1])
-    mfad::Ray ray_egg(Eigen::Vector3f(-1.1f, 0.0f, 2.0f), Eigen::Vector3f(0.0f, 0.0f, -1.0f));
-    mfad::HitRecord rec_egg;
-    bool hit_egg = scene.hittables.hit(ray_egg, 0.001f, 100.0f, rec_egg);
-    TEST_ASSERT(hit_egg);
+    // Ray towards sphere_left (sphere at [-1.15, 0, -1])
+    mfad::Ray ray_left(Eigen::Vector3f(-1.15f, 0.0f, 2.0f), Eigen::Vector3f(0.0f, 0.0f, -1.0f));
+    mfad::HitRecord rec_left;
+    bool hit_left = scene.hittables.hit(ray_left, 0.001f, 100.0f, rec_left);
+    TEST_ASSERT(hit_left);
 
     // Miss ray
     mfad::Ray ray_miss(Eigen::Vector3f(10.0f, 10.0f, 10.0f), Eigen::Vector3f(0.0f, 1.0f, 0.0f));

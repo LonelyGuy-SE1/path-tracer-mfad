@@ -72,6 +72,7 @@ public:
     std::vector<MeshData> meshes;
     std::vector<QuadricData> quadrics;
     std::vector<PointLight> point_lights;
+    std::vector<std::shared_ptr<Hittable>> area_lights;
     HittableList hittables;
 
     /**

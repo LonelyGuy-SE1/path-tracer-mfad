@@ -9,11 +9,12 @@ namespace mfad {
  */
 struct PointLight {
     Eigen::Vector3f position{0.0f, 0.0f, 0.0f};
-    Eigen::Vector3f intensity{1.0f, 1.0f, 1.0f};  // Radiant intensity (W/sr or color)
+    Eigen::Vector3f intensity{1.0f, 1.0f, 1.0f};
+    float radius{0.0f};
 
     PointLight() = default;
-    PointLight(const Eigen::Vector3f& pos, const Eigen::Vector3f& inten)
-        : position(pos), intensity(inten) {}
+    PointLight(const Eigen::Vector3f& pos, const Eigen::Vector3f& inten, float rad = 0.0f)
+        : position(pos), intensity(inten), radius(rad) {}
 };
 
 /**

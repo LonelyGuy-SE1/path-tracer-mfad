@@ -33,7 +33,13 @@ def test_view_trace_file(tmp_path: Path):
     from prep.trace import Trace
 
     trace = Trace()
-    trace.record("stage_basis", "rot_identity", np.eye(3), note="Identity matrix", checks={"det_is_one": True})
+    trace.record(
+        "stage_basis",
+        "rot_identity",
+        np.eye(3),
+        note="Identity matrix",
+        checks={"det_is_one": True},
+    )
     json_path = tmp_path / "test_trace.json"
     trace.save_json(json_path)
 
