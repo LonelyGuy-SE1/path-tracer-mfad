@@ -13,7 +13,10 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <omp.h>
@@ -141,7 +144,133 @@ void render_raw_frame(const std::string& out_path, const mfad::Scene& scene, int
     }
 }
 
-int main() {
+void run_quadruple_benchmark(const std::string& root_dir, const std::string& demo_scene_file,
+                             int initial_spp = 32, double max_runtime_minutes = 20.0,
+                             int max_spp = 0) {
+    std::cout << "\n=================================================" << std::endl;
+    std::cout << "  Quadrupling SPP Quality & Timing Benchmark     " << std::endl;
+    std::cout << "=================================================" << std::endl;
+    std::cout << "[INFO] Loading unified scene from " << demo_scene_file << std::endl;
+    mfad::Scene scene = mfad::SceneLoader::load_from_json(demo_scene_file);
+    scene.print_summary();
+
+    std::cout << "[INFO] Building BVH acceleration structure..." << std::endl;
+    scene.hittables.build_bvh();
+
+    const int width = 640;
+    const int height = 360;
+
+    mfad::PathTracerOptions pt_opts;
+    pt_opts.use_sky_gradient = false;
+    pt_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+    pt_opts.max_bounces = 16;
+    pt_opts.min_rr_bounces = 3;
+    pt_opts.sample_lights = true;
+    for (auto& quad : scene.area_lights) {
+        pt_opts.area_lights.push_back(std::dynamic_pointer_cast<mfad::Quad>(quad));
+    }
+    pt_opts.point_lights = scene.point_lights;
+
+    mfad::PathTracer tracer(pt_opts);
+
+    double max_runtime_seconds = max_runtime_minutes * 60.0;
+    int current_spp = initial_spp;
+    int step_index = 1;
+
+    struct BenchRecord {
+        int spp;
+        double seconds;
+        std::string filename;
+    };
+    std::vector<BenchRecord> benchmark_log;
+
+    while (true) {
+        std::cout << "\n-------------------------------------------------" << std::endl;
+        std::cout << "  [STEP " << step_index << "] Rendering " << current_spp << " spp (" << width
+                  << "x" << height << ")..." << std::endl;
+        std::cout << "-------------------------------------------------" << std::endl;
+
+        mfad::ImageBuffer pt_image(width, height);
+
+        auto t_start = std::chrono::high_resolution_clock::now();
+        tracer.render(*scene.camera_data.camera, scene.hittables, pt_image, current_spp);
+        auto t_end = std::chrono::high_resolution_clock::now();
+
+        double elapsed_sec = std::chrono::duration<double>(t_end - t_start).count();
+        double elapsed_min = elapsed_sec / 60.0;
+
+        std::string out_filename = "pathtraced_" + std::to_string(current_spp) + "spp.png";
+        std::string out_path = root_dir + "/" + out_filename;
+
+        if (pt_image.write_png(out_path)) {
+            std::cout << "[SUCCESS] Saved " << current_spp << " spp render to " << out_path
+                      << std::endl;
+        } else {
+            std::cerr << "[ERROR] Failed to save " << out_path << std::endl;
+        }
+
+        benchmark_log.push_back({current_spp, elapsed_sec, out_filename});
+
+        std::cout << "[BENCHMARK RESULT] Step " << step_index << " (" << current_spp
+                  << " spp): " << std::fixed << std::setprecision(2) << elapsed_sec << " s ("
+                  << std::setprecision(2) << elapsed_min << " min)" << std::endl;
+
+        // Save JSON benchmark record after each step
+        std::ofstream json_out(root_dir + "/spp_benchmark_results.json");
+        if (json_out.is_open()) {
+            json_out << "[\n";
+            for (size_t i = 0; i < benchmark_log.size(); ++i) {
+                json_out << "  {\"spp\": " << benchmark_log[i].spp
+                         << ", \"seconds\": " << std::fixed << std::setprecision(2)
+                         << benchmark_log[i].seconds << ", \"minutes\": " << std::setprecision(2)
+                         << (benchmark_log[i].seconds / 60.0) << ", \"file\": \""
+                         << benchmark_log[i].filename << "\"}";
+                if (i + 1 < benchmark_log.size())
+                    json_out << ",";
+                json_out << "\n";
+            }
+            json_out << "]\n";
+            json_out.close();
+        }
+
+        if (max_spp > 0 && current_spp >= max_spp) {
+            std::cout << "[STOPPING] Reached requested max SPP limit: " << max_spp << std::endl;
+            break;
+        }
+
+        if (elapsed_sec >= max_runtime_seconds) {
+            std::cout << "\n[STOPPING] Tracing time (" << elapsed_min
+                      << " min) reached/exceeded target limit (" << max_runtime_minutes << " min)."
+                      << std::endl;
+            break;
+        }
+
+        double projected_next_sec = elapsed_sec * 4.0;
+        std::cout << "[PROJECTION] Next step (" << (current_spp * 4) << " spp) estimated time: ~"
+                  << std::setprecision(2) << (projected_next_sec / 60.0) << " min" << std::endl;
+
+        current_spp *= 4;
+        ++step_index;
+    }
+
+    std::cout << "\n=================================================" << std::endl;
+    std::cout << "  BENCHMARK SUMMARY TABLE                        " << std::endl;
+    std::cout << "=================================================" << std::endl;
+    std::cout << "Step | SPP     | Tracing Time (s) | Tracing Time (min) | Relative Factor"
+              << std::endl;
+    std::cout << "-----------------------------------------------------------------------"
+              << std::endl;
+    for (size_t i = 0; i < benchmark_log.size(); ++i) {
+        double rel = (i == 0) ? 1.0 : (benchmark_log[i].seconds / benchmark_log[i - 1].seconds);
+        std::cout << (i + 1) << "    | " << std::setw(7) << benchmark_log[i].spp << " | "
+                  << std::setw(16) << std::fixed << std::setprecision(2) << benchmark_log[i].seconds
+                  << " s | " << std::setw(16) << (benchmark_log[i].seconds / 60.0) << " min | "
+                  << std::setprecision(2) << rel << "x" << std::endl;
+    }
+    std::cout << "=================================================\n" << std::endl;
+}
+
+int main(int argc, char** argv) {
     std::cout << "=================================================" << std::endl;
     std::cout << "  MFAD Linear Algebra Path Tracer                " << std::endl;
     std::cout << "=================================================" << std::endl;
@@ -156,6 +285,33 @@ int main() {
         std::filesystem::exists("../" + demo_scene_file)) {
         root_dir = "..";
         demo_scene_file = "../" + demo_scene_file;
+    }
+
+    // Check for benchmark command line arguments
+    bool run_benchmark = false;
+    int initial_spp = 32;
+    int max_spp = 0;
+    double max_runtime_min = 20.0;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--benchmark-spp" || arg == "--benchmark") {
+            run_benchmark = true;
+        } else if (arg == "--start-spp" && i + 1 < argc) {
+            initial_spp = std::stoi(argv[++i]);
+            run_benchmark = true;
+        } else if (arg == "--max-spp" && i + 1 < argc) {
+            max_spp = std::stoi(argv[++i]);
+            run_benchmark = true;
+        } else if (arg == "--max-time-min" && i + 1 < argc) {
+            max_runtime_min = std::stod(argv[++i]);
+            run_benchmark = true;
+        }
+    }
+
+    if (run_benchmark) {
+        run_quadruple_benchmark(root_dir, demo_scene_file, initial_spp, max_runtime_min, max_spp);
+        return 0;
     }
 
     // 1. Initial Camera Ray / Sky Gradient verification test (Issue #19)
