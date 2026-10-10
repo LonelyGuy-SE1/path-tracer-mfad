@@ -121,10 +121,10 @@ StageResult<ProjectResult> stage_project_image_plane(const Eigen::Vector3d& poin
     res.in_frustum = (res.ndc.x() >= -1.0 && res.ndc.x() <= 1.0 && res.ndc.y() >= -1.0 &&
                       res.ndc.y() <= 1.0 && res.ndc.z() >= -1.0 && res.ndc.z() <= 1.0);
 
-    // Map NDC to pixel coordinates [0, width - 1] x [0, height - 1]
-    double px = 0.5 * (res.ndc.x() + 1.0) * static_cast<double>(width - 1);
+    // Map NDC to pixel coordinates [0, width] x [0, height]
+    double px = 0.5 * (res.ndc.x() + 1.0) * static_cast<double>(width);
     // Y-flipped so (0, 0) is top-left in screen pixels
-    double py = 0.5 * (1.0 - res.ndc.y()) * static_cast<double>(height - 1);
+    double py = 0.5 * (1.0 - res.ndc.y()) * static_cast<double>(height);
     res.pixel = Eigen::Vector2d(px, py);
 
     if (trace != nullptr) {

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <omp.h>
 
 namespace mfad {
@@ -15,6 +16,7 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
     // Ambient illumination: L_ambient = albedo * ambient_color
     Eigen::Vector3f L = albedo.cwiseProduct(options.ambient_color);
 
+    constexpr float pi = 3.14159265358979323846f;
     for (const auto& light : lights) {
         // Step 1: Use stage_shadow_direction to compute light direction, distance, and acne-free
         // offset origin
@@ -26,11 +28,15 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
 
         // Step 2: Cast shadow ray to test occlusion
         Ray shadow_ray(s_res.shadow_origin.cast<float>(), s_res.direction.cast<float>());
-        float t_max = static_cast<float>(s_res.distance - options.shadow_epsilon);
+        float t_max = static_cast<float>(s_res.distance - light.radius - options.shadow_epsilon);
 
         HitRecord occluder_rec;
         bool in_shadow =
-            scene.hit(shadow_ray, static_cast<float>(options.shadow_epsilon), t_max, occluder_rec);
+            options.enable_shadows && (t_max > static_cast<float>(options.shadow_epsilon)) &&
+            scene.hit(shadow_ray, static_cast<float>(options.shadow_epsilon), t_max,
+                      occluder_rec) &&
+            !(occluder_rec.material &&
+              occluder_rec.material->emitted(shadow_ray, occluder_rec).squaredNorm() > 1e-4f);
 
         if (!in_shadow) {
             // Step 3: Compute Lambertian diffuse cosine factor using stage_diffuse_term
@@ -49,7 +55,7 @@ compute_direct_lighting(const Eigen::Vector3f& surface_point, const Eigen::Vecto
 
                 // Step 5: Direct diffuse reflection: L_direct = albedo * intensity * cos_theta *
                 // atten
-                L += (cos_theta * atten) * albedo.cwiseProduct(light.intensity);
+                L += (cos_theta * atten / pi) * albedo.cwiseProduct(light.intensity);
             }
         }
     }
@@ -171,7 +177,8 @@ void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffe
     const int width = buffer.width();
     const int height = buffer.height();
 
-#pragma omp parallel for schedule(dynamic, 1)
+    int rows_done = 0;
+#pragma omp parallel for schedule(dynamic, 8)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             Eigen::Vector3f pixel_col = Eigen::Vector3f::Zero();
@@ -189,7 +196,17 @@ void render_direct_lighting(const Camera& camera, const Scene& scene, ImageBuffe
             pixel_col /= static_cast<float>(samples_per_pixel);
             buffer.set_pixel(x, y, pixel_col);
         }
+#pragma omp critical
+        {
+            ++rows_done;
+            if (rows_done % (height / 10 + 1) == 0 || rows_done == height) {
+                std::cerr << "\r[DirectLighting] Progress: " << (100 * rows_done / height) << "%"
+                          << std::flush;
+            }
+        }
     }
+    if (height > 0)
+        std::cerr << std::endl;
 }
 
 }  // namespace mfad

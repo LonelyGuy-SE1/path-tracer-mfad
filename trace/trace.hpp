@@ -104,15 +104,17 @@ public:
         std::string bin_filename;
         if (!bin_buffer_.empty()) {
             std::string bin_path = filepath;
-            size_t dot_pos = bin_path.rfind('.');
-            if (dot_pos != std::string::npos) {
+            size_t dot_pos = bin_path.find_last_of('.');
+            size_t slash_pos = bin_path.find_last_of("/\\");
+            if (dot_pos != std::string::npos &&
+                (slash_pos == std::string::npos || dot_pos > slash_pos)) {
                 bin_path = bin_path.substr(0, dot_pos) + ".bin";
             } else {
                 bin_path += ".bin";
             }
 
             // Extract just the filename for relative reference
-            size_t slash_pos = bin_path.find_last_of("/\\");
+            slash_pos = bin_path.find_last_of("/\\");
             bin_filename =
                 (slash_pos != std::string::npos) ? bin_path.substr(slash_pos + 1) : bin_path;
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import numpy as np
 
 try:
@@ -11,7 +12,9 @@ except ImportError:
     Image = None
 
 
-def generate_comparison_html(img_before: Path, img_after: Path, out_html: Path, title: str = "MFAD Render Comparison") -> None:
+def generate_comparison_html(
+    img_before: Path, img_after: Path, out_html: Path, title: str = "MFAD Render Comparison"
+) -> None:
     """Generate an interactive before/after split slider HTML viewer (Issue #8)."""
     # Use relative paths or data URIs for portability
     html = f"""<!DOCTYPE html>
@@ -177,11 +180,15 @@ def compute_difference_map(img1_path: Path, img2_path: Path, out_path: Path) -> 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Viewer: before/after image comparison tool (Issue #8)")
+    parser = argparse.ArgumentParser(
+        description="Viewer: before/after image comparison tool (Issue #8)"
+    )
     parser.add_argument("img1", type=str, help="Path to first image (Before)")
     parser.add_argument("img2", type=str, help="Path to second image (After)")
     parser.add_argument("--diff", type=str, default="diff.png", help="Path to save difference map")
-    parser.add_argument("--html", type=str, default="compare.html", help="Path to save interactive HTML slider")
+    parser.add_argument(
+        "--html", type=str, default="compare.html", help="Path to save interactive HTML slider"
+    )
     args = parser.parse_args(argv)
 
     p1, p2 = Path(args.img1), Path(args.img2)
@@ -194,7 +201,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         mae = compute_difference_map(p1, p2, Path(args.diff))
-        print(f"[SUCCESS] Difference heatmap saved to {args.diff} (Mean Absolute Difference: {mae:.5f})")
+        print(
+            f"[SUCCESS] Difference heatmap saved to {args.diff} (Mean Absolute Difference: {mae:.5f})"
+        )
     except Exception as e:
         print(f"[WARN] Could not generate difference map: {e}")
 

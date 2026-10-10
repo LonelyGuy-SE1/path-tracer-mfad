@@ -104,9 +104,9 @@ void test_projection_onto_image_plane() {
     // Center maps to NDC (0, 0)
     assert(std::abs(res_center.value.ndc.x()) < 1e-12);
     assert(std::abs(res_center.value.ndc.y()) < 1e-12);
-    // Pixel is image center: px ~ (width-1)/2, py ~ (height-1)/2
-    assert(std::abs(res_center.value.pixel.x() - 0.5 * (width - 1)) < 1e-10);
-    assert(std::abs(res_center.value.pixel.y() - 0.5 * (height - 1)) < 1e-10);
+    // Pixel is image center: px ~ width/2, py ~ height/2
+    assert(std::abs(res_center.value.pixel.x() - 0.5 * width) < 1e-10);
+    assert(std::abs(res_center.value.pixel.y() - 0.5 * height) < 1e-10);
 
     // Point outside frustum (behind camera)
     Eigen::Vector3d pt_behind(0.0, 0.0, 5.0);

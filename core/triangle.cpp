@@ -47,4 +47,11 @@ bool Triangle::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const
     return true;
 }
 
+AABB Triangle::bounding_box() const {
+    Eigen::Vector3f min_pt = v0_.cwiseMin(v1_).cwiseMin(v2_);
+    Eigen::Vector3f max_pt = v0_.cwiseMax(v1_).cwiseMax(v2_);
+    Eigen::Vector3f padding = Eigen::Vector3f::Constant(1e-4f);
+    return AABB(min_pt - padding, max_pt + padding);
+}
+
 }  // namespace mfad

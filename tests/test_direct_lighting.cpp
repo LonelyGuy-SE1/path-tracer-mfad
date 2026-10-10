@@ -34,15 +34,16 @@ void test_lambert_cosine_shading() {
                                     Eigen::Vector3f(1.0f, 1.0f, 1.0f));
     Eigen::Vector3f l_overhead =
         mfad::compute_direct_lighting(surface_point, normal, albedo, {light_overhead}, scene, opts);
-    TEST_ASSERT(std::abs(l_overhead.x() - 1.0f) < 1e-4f);
-    TEST_ASSERT(std::abs(l_overhead.y() - 1.0f) < 1e-4f);
-    TEST_ASSERT(std::abs(l_overhead.z() - 1.0f) < 1e-4f);
+    const float pi = static_cast<float>(M_PI);
+    TEST_ASSERT(std::abs(l_overhead.x() - 1.0f / pi) < 1e-4f);
+    TEST_ASSERT(std::abs(l_overhead.y() - 1.0f / pi) < 1e-4f);
+    TEST_ASSERT(std::abs(l_overhead.z() - 1.0f / pi) < 1e-4f);
 
     // 2. Light at 45 degrees: cos(45 deg) = sqrt(2) / 2 ~= 0.707107
     mfad::PointLight light_45(Eigen::Vector3f(5.0f, 5.0f, 0.0f), Eigen::Vector3f(1.0f, 1.0f, 1.0f));
     Eigen::Vector3f l_45 =
         mfad::compute_direct_lighting(surface_point, normal, albedo, {light_45}, scene, opts);
-    float expected_cos45 = 1.0f / std::sqrt(2.0f);
+    float expected_cos45 = (1.0f / std::sqrt(2.0f)) / pi;
     TEST_ASSERT(std::abs(l_45.x() - expected_cos45) < 1e-4f);
 
     // 3. Light at horizon (90 degrees): cos(90 deg) = 0.0
@@ -123,7 +124,7 @@ void test_render_direct_lighting_scene() {
 
     // Point light positioned above and slightly to the right
     scene.point_lights.emplace_back(Eigen::Vector3f(2.0f, 4.0f, 0.0f),
-                                    Eigen::Vector3f(12.0f, 12.0f, 12.0f));
+                                    Eigen::Vector3f(50.0f, 50.0f, 50.0f));
 
     const int width = 320;
     const int height = 180;
@@ -155,10 +156,11 @@ void test_render_direct_lighting_scene() {
     TEST_ASSERT(has_illuminated_pixels);
 
     // Write artifact image to disk
-    const std::string out_file = "direct_lighting.png";
+    const std::string out_file = "test_direct_lighting_tmp.png";
     bool written = buffer.write_png(out_file);
     TEST_ASSERT(written);
-    std::cout << "[PASS] Rendered direct lighting artifact to " << out_file << std::endl;
+    std::filesystem::remove(out_file);
+    std::cout << "[PASS] Verified direct lighting buffer PNG write" << std::endl;
 }
 
 int main() {

@@ -25,14 +25,21 @@ struct PathTracerOptions {
     std::vector<PointLight> point_lights;
 };
 
+struct CachedAreaLight {
+    std::shared_ptr<Quad> quad;
+    Eigen::Vector3f normal;
+    float area = 0.0f;
+    Eigen::Vector3f emit;
+    bool two_sided = false;
+};
+
 /**
  * @brief Monte Carlo Path Tracer with iterative bouncing and Russian roulette termination.
  * Integrates the rendering equation using Duff et al. (2017) stage_basis frames.
  */
 class PathTracer {
 public:
-    explicit PathTracer(const PathTracerOptions& options = PathTracerOptions())
-        : options_(options) {}
+    explicit PathTracer(const PathTracerOptions& options = PathTracerOptions());
 
     /**
      * @brief Computes radiance along a ray using iterative path tracing with Russian roulette.
@@ -46,10 +53,13 @@ public:
                 int samples_per_pixel) const;
 
     const PathTracerOptions& options() const { return options_; }
-    void set_options(const PathTracerOptions& options) { options_ = options; }
+    void set_options(const PathTracerOptions& options);
 
 private:
+    void update_cached_lights();
+
     PathTracerOptions options_;
+    std::vector<CachedAreaLight> cached_area_lights_;
 };
 
 }  // namespace mfad

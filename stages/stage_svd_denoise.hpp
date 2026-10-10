@@ -32,15 +32,15 @@ struct MultiChannelSvdResult {
  * @param trace Optional trace recorder.
  * @param name Diagnostic identifier.
  */
-StageResult<SvdDenoiseResult> stage_svd_denoise_channel(
-    const Eigen::MatrixXd& channel, int rank, Trace* trace = nullptr,
-    const std::string& name = "svd_denoise_channel");
+StageResult<SvdDenoiseResult>
+stage_svd_denoise_channel(const Eigen::MatrixXd& channel, int rank, Trace* trace = nullptr,
+                          const std::string& name = "svd_denoise_channel");
 
 /**
  * @brief Performs per-channel truncated SVD across multiple image channels (e.g. RGB).
  */
-StageResult<MultiChannelSvdResult> stage_svd_denoise_image(
-    const std::vector<Eigen::MatrixXd>& channels, int rank, Trace* trace = nullptr,
-    const std::string& name = "svd_denoise_image");
+StageResult<MultiChannelSvdResult>
+stage_svd_denoise_image(const std::vector<Eigen::MatrixXd>& channels, int rank,
+                        Trace* trace = nullptr, const std::string& name = "svd_denoise_image");
 
 }  // namespace mfad

@@ -39,7 +39,9 @@ def format_record(idx: int, rec: dict[str, Any], precision: int = 4, max_element
     if array is not None:
         lines.append("      Matrix:")
         arr = np.asarray(array)
-        with np.printoptions(precision=precision, suppress=True, edgeitems=3, threshold=max_elements):
+        with np.printoptions(
+            precision=precision, suppress=True, edgeitems=3, threshold=max_elements
+        ):
             arr_str = str(arr)
             for line in arr_str.splitlines():
                 lines.append(f"        {line}")

@@ -1,48 +1,184 @@
 {
   "camera": {
-    "eye": [0, 0.4, 2.2],
-    "look_at": [0, 0, -1],
-    "up": [0, 1, 0],
+    "eye": [
+      0,
+      0.4,
+      2.2
+    ],
+    "look_at": [
+      0,
+      0,
+      -1
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
     "vfov": 45
   },
   "materials": {
     "red": {
       "type": "diffuse",
-      "albedo": [0.85, 0.22, 0.2]
+      "albedo": [
+        0.85,
+        0.22,
+        0.2
+      ]
     },
     "glass": {
       "type": "glass",
       "ior": 1.5
+    },
+    "mirror": {
+      "type": "metal",
+      "albedo": [
+        0.85,
+        0.88,
+        0.9
+      ],
+      "fuzz": 0.02
+    },
+    "gold": {
+      "type": "metal",
+      "albedo": [
+        0.95,
+        0.75,
+        0.15
+      ],
+      "fuzz": 0.05
+    },
+    "floor": {
+      "type": "checker",
+      "albedo": [
+        0.85,
+        0.85,
+        0.88
+      ],
+      "color2": [
+        0.35,
+        0.35,
+        0.4
+      ],
+      "scale": 2.0
+    },
+    "light_mat": {
+      "type": "diffuse_light",
+      "albedo": [
+        15.0,
+        15.0,
+        15.0
+      ],
+      "two_sided": true
     }
   },
+  "planes": [
+    {
+      "point": [
+        0,
+        -0.5,
+        0
+      ],
+      "normal": [
+        0,
+        1,
+        0
+      ],
+      "material": "floor"
+    }
+  ],
   "meshes": [
     {
       "name": "cube",
       "file": "meshes/cube.obj",
       "material": "red",
       "transform": [
-        [0.70710678, 0, 0.70710678, 0],
-        [0, 1, 0, 0],
-        [-0.70710678, 0, 0.70710678, -1.2],
-        [0, 0, 0, 1]
+        [
+          0.70710678,
+          0,
+          0.70710678,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          -0.70710678,
+          0,
+          0.70710678,
+          -1.2
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ]
       ]
     }
   ],
   "quadrics": [
     {
-      "name": "egg",
-      "type": "ellipsoid",
-      "center": [-1.1, 0, -1],
-      "radii": [0.6, 0.35, 0.35],
-      "rotation_deg": [0, 0, 30],
+      "name": "sphere_left",
+      "type": "sphere",
+      "center": [
+        -1.15,
+        0,
+        -1
+      ],
+      "radius": 0.5,
       "material": "glass"
     },
     {
-      "name": "ball",
+      "name": "sphere_right",
       "type": "sphere",
-      "center": [1.1, 0, -1],
+      "center": [
+        1.15,
+        0,
+        -1
+      ],
       "radius": 0.5,
-      "material": "glass"
+      "material": "mirror"
+    },
+    {
+      "name": "sphere_front",
+      "type": "sphere",
+      "center": [
+        0,
+        -0.25,
+        -0.5
+      ],
+      "radius": 0.25,
+      "material": "gold"
+    },
+    {
+      "name": "light_sphere",
+      "type": "sphere",
+      "center": [
+        -1.65,
+        0.92,
+        -0.89
+      ],
+      "radius": 0.15,
+      "material": "light_mat"
+    }
+  ],
+  "lights": [
+    {
+      "position": [
+        -1.65,
+        0.92,
+        -0.89
+      ],
+      "intensity": [
+        15.0,
+        15.0,
+        15.0
+      ],
+      "radius": 0.2
     }
   ]
 }

@@ -5,9 +5,8 @@
 
 namespace mfad {
 
-StageResult<SvdDenoiseResult> stage_svd_denoise_channel(
-    const Eigen::MatrixXd& channel, int rank, Trace* trace,
-    const std::string& name) {
+StageResult<SvdDenoiseResult> stage_svd_denoise_channel(const Eigen::MatrixXd& channel, int rank,
+                                                        Trace* trace, const std::string& name) {
     StageResult<SvdDenoiseResult> result;
     result.stage_name = "stage_svd_denoise";
 
@@ -65,9 +64,9 @@ StageResult<SvdDenoiseResult> stage_svd_denoise_channel(
     return result;
 }
 
-StageResult<MultiChannelSvdResult> stage_svd_denoise_image(
-    const std::vector<Eigen::MatrixXd>& channels, int rank, Trace* trace,
-    const std::string& name) {
+StageResult<MultiChannelSvdResult>
+stage_svd_denoise_image(const std::vector<Eigen::MatrixXd>& channels, int rank, Trace* trace,
+                        const std::string& name) {
     StageResult<MultiChannelSvdResult> result;
     result.stage_name = "stage_svd_denoise";
 

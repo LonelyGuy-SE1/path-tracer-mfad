@@ -77,3 +77,15 @@ bool Ellipsoid::hit(const Ray& r, float t_min, float t_max, HitRecord& rec) cons
 }
 
 }  // namespace mfad
+
+namespace mfad {
+AABB Ellipsoid::bounding_box() const {
+    Eigen::Vector3f extent;
+    for (int i = 0; i < 3; i++) {
+        extent[i] = std::sqrt(std::pow(radii_.x() * rotation_(i, 0), 2) +
+                              std::pow(radii_.y() * rotation_(i, 1), 2) +
+                              std::pow(radii_.z() * rotation_(i, 2), 2));
+    }
+    return AABB(center_ - extent, center_ + extent);
+}
+}  // namespace mfad

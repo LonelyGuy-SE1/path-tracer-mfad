@@ -18,6 +18,7 @@ public:
              std::shared_ptr<Material> material = nullptr);
 
     bool hit(const Ray& r, float t_min, float t_max, HitRecord& rec) const override;
+    AABB bounding_box() const override;
 
     const Eigen::Vector3f& v0() const { return v0_; }
     const Eigen::Vector3f& v1() const { return v1_; }
