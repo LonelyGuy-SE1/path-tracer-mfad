@@ -156,10 +156,11 @@ void test_render_direct_lighting_scene() {
     TEST_ASSERT(has_illuminated_pixels);
 
     // Write artifact image to disk
-    const std::string out_file = "direct_lighting.png";
+    const std::string out_file = "test_direct_lighting_tmp.png";
     bool written = buffer.write_png(out_file);
     TEST_ASSERT(written);
-    std::cout << "[PASS] Rendered direct lighting artifact to " << out_file << std::endl;
+    std::filesystem::remove(out_file);
+    std::cout << "[PASS] Verified direct lighting buffer PNG write" << std::endl;
 }
 
 int main() {
