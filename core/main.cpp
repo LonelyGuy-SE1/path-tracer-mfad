@@ -53,8 +53,10 @@ void render_initial_gradient(const std::string& out_path) {
     }
 }
 
-void render_cornell_box(const std::string& out_path, const std::string& root_dir) {
+void render_cornell_box(const std::string& out_path, const std::string& root_dir,
+                        int samples_per_pixel = 32768) {
     std::cout << "\n[TEST 2] Cornell Box Path Tracing Validation (Issue #26)..." << std::endl;
+    std::cout << "[INFO] Target samples per pixel: " << samples_per_pixel << std::endl;
     std::string cb_scene_file = root_dir + "/scenes/cornell_box.json";
     if (!std::filesystem::exists(cb_scene_file)) {
         cb_scene_file = "scenes/cornell_box.json";
@@ -62,7 +64,6 @@ void render_cornell_box(const std::string& out_path, const std::string& root_dir
 
     const int width = 640;
     const int height = 360;
-    const int samples_per_pixel = 128;
 
     std::cout << "[INFO] Loading Cornell Box scene from " << cb_scene_file << std::endl;
     mfad::Scene cb_scene =
@@ -83,12 +84,54 @@ void render_cornell_box(const std::string& out_path, const std::string& root_dir
 
     mfad::PathTracer tracer(opts);
     mfad::ImageBuffer image(width, height);
+    auto t_start = std::chrono::high_resolution_clock::now();
     tracer.render(*cb_scene.camera_data.camera, cb_scene.hittables, image, samples_per_pixel);
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double elapsed_sec = std::chrono::duration<double>(t_end - t_start).count();
+    std::cout << "[INFO] Cornell Box render complete in " << std::fixed << std::setprecision(2)
+              << elapsed_sec << " s (" << (elapsed_sec / 60.0) << " min)" << std::endl;
 
     if (image.write_png(out_path)) {
         std::cout << "[SUCCESS] Saved Cornell Box to " << out_path << std::endl;
     } else {
         std::cerr << "[ERROR] Failed to save " << out_path << std::endl;
+    }
+}
+
+void denoise_and_save(const mfad::ImageBuffer& pt_image, const std::string& denoised_out,
+                      int svd_rank = 120) {
+    int width = pt_image.width();
+    int height = pt_image.height();
+    std::cout << "\n[INFO] Stage 3: Applying SVD Low-Rank Denoising (Rank " << svd_rank << ")..."
+              << std::endl;
+    std::vector<Eigen::MatrixXd> channels(3, Eigen::MatrixXd(height, width));
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            Eigen::Vector3f c = pt_image.get_pixel(x, y);
+            channels[0](y, x) = static_cast<double>(c.x());
+            channels[1](y, x) = static_cast<double>(c.y());
+            channels[2](y, x) = static_cast<double>(c.z());
+        }
+    }
+
+    auto denoise_res = mfad::stage_svd_denoise_image(channels, svd_rank);
+    mfad::ImageBuffer denoised_image(width, height);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float r =
+                static_cast<float>(std::max(0.0, denoise_res.value.denoised_channels[0](y, x)));
+            float g =
+                static_cast<float>(std::max(0.0, denoise_res.value.denoised_channels[1](y, x)));
+            float b =
+                static_cast<float>(std::max(0.0, denoise_res.value.denoised_channels[2](y, x)));
+            denoised_image.set_pixel(x, y, Eigen::Vector3f(r, g, b));
+        }
+    }
+
+    if (denoised_image.write_png(denoised_out)) {
+        std::cout << "[SUCCESS] Saved SVD Denoised image to " << denoised_out << std::endl;
+    } else {
+        std::cerr << "[ERROR] Failed to save " << denoised_out << std::endl;
     }
 }
 
@@ -256,11 +299,18 @@ int main(int argc, char** argv) {
         demo_scene_file = "../" + demo_scene_file;
     }
 
-    // Check for benchmark command line arguments
+    // Check for command line arguments
     bool run_benchmark = false;
+    bool cornell_only = false;
+    bool demo_only = false;
+    bool denoise_only = false;
+    bool force_pt = false;
     int initial_spp = 32;
     int max_spp = 0;
     double max_runtime_min = 20.0;
+    int cornell_spp = 32768;
+    int pt_spp = 32768;
+    int direct_spp = 32;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -275,6 +325,24 @@ int main(int argc, char** argv) {
         } else if (arg == "--max-time-min" && i + 1 < argc) {
             max_runtime_min = std::stod(argv[++i]);
             run_benchmark = true;
+        } else if (arg == "--cornell-only") {
+            cornell_only = true;
+        } else if (arg == "--demo-only") {
+            demo_only = true;
+        } else if (arg == "--denoise-only") {
+            denoise_only = true;
+        } else if (arg == "--force" || arg == "--force-pt") {
+            force_pt = true;
+        } else if (arg == "--spp" && i + 1 < argc) {
+            int val = std::stoi(argv[++i]);
+            cornell_spp = val;
+            pt_spp = val;
+        } else if (arg == "--cornell-spp" && i + 1 < argc) {
+            cornell_spp = std::stoi(argv[++i]);
+        } else if ((arg == "--pt-spp" || arg == "--demo-spp") && i + 1 < argc) {
+            pt_spp = std::stoi(argv[++i]);
+        } else if (arg == "--direct-spp" && i + 1 < argc) {
+            direct_spp = std::stoi(argv[++i]);
         }
     }
 
@@ -283,13 +351,40 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // 1. Initial Camera Ray / Sky Gradient verification test (Issue #19)
-    const std::string gradient_out = root_dir + "/gradient.png";
-    render_initial_gradient(gradient_out);
+    const std::string denoised_out = root_dir + "/final_demo_denoised.png";
+    const std::string pathtraced_out = root_dir + "/final_demo_pathtraced.png";
 
-    // 2. Cornell Box Path Tracing benchmark test (Issue #26)
-    const std::string cornell_out = root_dir + "/cornell_box.png";
-    render_cornell_box(cornell_out, root_dir);
+    if (denoise_only) {
+        std::string pt_file = pathtraced_out;
+        if (!std::filesystem::exists(pt_file) &&
+            std::filesystem::exists(root_dir + "/pathtraced_32768spp.png")) {
+            pt_file = root_dir + "/pathtraced_32768spp.png";
+        }
+        mfad::ImageBuffer pt_buf(640, 360);
+        if (pt_buf.read_png(pt_file)) {
+            denoise_and_save(pt_buf, denoised_out, 120);
+        } else {
+            std::cerr << "[ERROR] Could not load " << pt_file << " for denoising" << std::endl;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (cornell_only) {
+        const std::string cornell_out = root_dir + "/cornell_box.png";
+        render_cornell_box(cornell_out, root_dir, cornell_spp);
+        return 0;
+    }
+
+    if (!demo_only) {
+        // 1. Initial Camera Ray / Sky Gradient verification test (Issue #19)
+        const std::string gradient_out = root_dir + "/gradient.png";
+        render_initial_gradient(gradient_out);
+
+        // 2. Cornell Box Path Tracing benchmark test (Issue #26)
+        const std::string cornell_out = root_dir + "/cornell_box.png";
+        render_cornell_box(cornell_out, root_dir, cornell_spp);
+    }
 
     // 3. Unified Final Demo Scene Pipeline (Issue #7, #8, #18, #20, #24)
     std::cout << "\n=================================================" << std::endl;
@@ -308,21 +403,15 @@ int main(int argc, char** argv) {
 
     const std::string raw_out = root_dir + "/final_demo_raw.png";
     const std::string direct_out = root_dir + "/final_demo_direct.png";
-    const std::string pathtraced_out = root_dir + "/final_demo_pathtraced.png";
-    const std::string denoised_out = root_dir + "/final_demo_denoised.png";
 
     // -------------------------------------------------------------
     // Stage 0: Raw Canvas Frame (pre-pathtracing, unshadowed geometry)
     // -------------------------------------------------------------
     render_raw_frame(raw_out, scene, width, height);
-    std::error_code ec;
-    std::filesystem::copy_file(raw_out, root_dir + "/initial_canvas.png",
-                               std::filesystem::copy_options::overwrite_existing, ec);
 
     // -------------------------------------------------------------
     // Stage 1: Direct Lighting (Whitted reflection/refraction + shadow rays)
     // -------------------------------------------------------------
-    const int direct_spp = 32;
     std::cout << "\n[INFO] Stage 1: Rendering Direct Lighting (" << width << "x" << height << ", "
               << direct_spp << " spp)..." << std::endl;
     mfad::ImageBuffer direct_image(width, height);
@@ -343,66 +432,48 @@ int main(int argc, char** argv) {
     // -------------------------------------------------------------
     // Stage 2: Monte Carlo Path Tracing (Global Illumination + NEE + RR)
     // -------------------------------------------------------------
-    const int pt_spp = 128;
-    std::cout << "\n[INFO] Stage 2: Rendering Path Traced Global Illumination (" << width << "x"
-              << height << ", " << pt_spp << " spp, max 16 bounces)..." << std::endl;
     mfad::ImageBuffer pt_image(width, height);
-    mfad::PathTracerOptions pt_opts;
-    pt_opts.use_sky_gradient = false;
-    pt_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
-    pt_opts.max_bounces = 16;
-    pt_opts.min_rr_bounces = 3;
-    pt_opts.sample_lights = true;
-    for (auto& quad : scene.area_lights) {
-        pt_opts.area_lights.push_back(std::dynamic_pointer_cast<mfad::Quad>(quad));
-    }
-    pt_opts.point_lights = scene.point_lights;
+    std::string preconverged_32k = root_dir + "/pathtraced_32768spp.png";
 
-    mfad::PathTracer tracer(pt_opts);
-    tracer.render(*scene.camera_data.camera, scene.hittables, pt_image, pt_spp);
-    if (pt_image.write_png(pathtraced_out)) {
-        std::cout << "[SUCCESS] Saved Path Tracing to " << pathtraced_out << std::endl;
+    if (pt_spp == 32768 && !force_pt && std::filesystem::exists(preconverged_32k)) {
+        std::cout << "\n[INFO] Stage 2: Found pre-converged 32768 SPP render (" << preconverged_32k
+                  << "). Promoting to " << pathtraced_out << "..." << std::endl;
+        std::filesystem::copy_file(preconverged_32k, pathtraced_out,
+                                   std::filesystem::copy_options::overwrite_existing);
+        if (!pt_image.read_png(pathtraced_out)) {
+            std::cerr << "[ERROR] Failed to load promoted " << pathtraced_out << std::endl;
+            return 1;
+        }
+        std::cout << "[SUCCESS] Successfully promoted pre-converged 32768 SPP render to "
+                  << pathtraced_out << std::endl;
     } else {
-        std::cerr << "[ERROR] Failed to save " << pathtraced_out << std::endl;
-        return 1;
+        std::cout << "\n[INFO] Stage 2: Rendering Path Traced Global Illumination (" << width << "x"
+                  << height << ", " << pt_spp << " spp, max 16 bounces)..." << std::endl;
+        mfad::PathTracerOptions pt_opts;
+        pt_opts.use_sky_gradient = false;
+        pt_opts.background_color = Eigen::Vector3f(0.015f, 0.015f, 0.02f);
+        pt_opts.max_bounces = 16;
+        pt_opts.min_rr_bounces = 3;
+        pt_opts.sample_lights = true;
+        for (auto& quad : scene.area_lights) {
+            pt_opts.area_lights.push_back(std::dynamic_pointer_cast<mfad::Quad>(quad));
+        }
+        pt_opts.point_lights = scene.point_lights;
+
+        mfad::PathTracer tracer(pt_opts);
+        tracer.render(*scene.camera_data.camera, scene.hittables, pt_image, pt_spp);
+        if (pt_image.write_png(pathtraced_out)) {
+            std::cout << "[SUCCESS] Saved Path Tracing to " << pathtraced_out << std::endl;
+        } else {
+            std::cerr << "[ERROR] Failed to save " << pathtraced_out << std::endl;
+            return 1;
+        }
     }
 
     // -------------------------------------------------------------
     // Stage 3: SVD Low-Rank Denoising (Matrix truncated SVD)
     // -------------------------------------------------------------
-    const int svd_rank = 120;
-    std::cout << "\n[INFO] Stage 3: Applying SVD Low-Rank Denoising (Rank " << svd_rank << ")..."
-              << std::endl;
-    std::vector<Eigen::MatrixXd> channels(3, Eigen::MatrixXd(height, width));
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            Eigen::Vector3f c = pt_image.get_pixel(x, y);
-            channels[0](y, x) = static_cast<double>(c.x());
-            channels[1](y, x) = static_cast<double>(c.y());
-            channels[2](y, x) = static_cast<double>(c.z());
-        }
-    }
-
-    auto denoise_res = mfad::stage_svd_denoise_image(channels, svd_rank);
-    mfad::ImageBuffer denoised_image(width, height);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float r =
-                static_cast<float>(std::max(0.0, denoise_res.value.denoised_channels[0](y, x)));
-            float g =
-                static_cast<float>(std::max(0.0, denoise_res.value.denoised_channels[1](y, x)));
-            float b =
-                static_cast<float>(std::max(0.0, denoise_res.value.denoised_channels[2](y, x)));
-            denoised_image.set_pixel(x, y, Eigen::Vector3f(r, g, b));
-        }
-    }
-
-    if (denoised_image.write_png(denoised_out)) {
-        std::cout << "[SUCCESS] Saved SVD Denoised image to " << denoised_out << std::endl;
-    } else {
-        std::cerr << "[ERROR] Failed to save " << denoised_out << std::endl;
-        return 1;
-    }
+    denoise_and_save(pt_image, denoised_out, 120);
 
     std::cout << "\n[ALL COMPLETE] Entire rendering process finished successfully!" << std::endl;
     return 0;

@@ -51,6 +51,7 @@ public:
     virtual Eigen::Vector3f base_color(const HitRecord& /*rec*/) const {
         return Eigen::Vector3f::Constant(0.8f);
     }
+    virtual bool is_specular() const { return false; }
 };
 
 /**
@@ -178,6 +179,7 @@ public:
     }
 
     Eigen::Vector3f base_color(const HitRecord& /*rec*/) const override { return albedo_; }
+    bool is_specular() const override { return true; }
 
 private:
     Eigen::Vector3f albedo_;
@@ -228,6 +230,7 @@ public:
     Eigen::Vector3f base_color(const HitRecord& /*rec*/) const override {
         return Eigen::Vector3f(0.85f, 0.92f, 1.0f);
     }
+    bool is_specular() const override { return true; }
 
 private:
     float ir_;

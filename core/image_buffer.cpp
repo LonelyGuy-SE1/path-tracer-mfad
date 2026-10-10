@@ -6,6 +6,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 namespace mfad {
 
 ImageBuffer::ImageBuffer(int width, int height)
@@ -64,6 +67,30 @@ bool ImageBuffer::write_png(const std::string& filepath, float gamma, bool apply
     }
 
     return stbi_write_png(filepath.c_str(), width_, height_, 3, bytes.data(), width_ * 3) != 0;
+}
+
+bool ImageBuffer::read_png(const std::string& filepath) {
+    int w = 0;
+    int h = 0;
+    int channels = 0;
+    unsigned char* data = stbi_load(filepath.c_str(), &w, &h, &channels, 3);
+    if (!data) {
+        return false;
+    }
+    width_ = w;
+    height_ = h;
+    pixels_.resize(w * h);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int idx = (y * w + x) * 3;
+            float r = static_cast<float>(data[idx + 0]) / 255.0f;
+            float g = static_cast<float>(data[idx + 1]) / 255.0f;
+            float b = static_cast<float>(data[idx + 2]) / 255.0f;
+            pixels_[y * w + x] = Eigen::Vector3f(r, g, b);
+        }
+    }
+    stbi_image_free(data);
+    return true;
 }
 
 bool ImageBuffer::write_hdr(const std::string& filepath) const {

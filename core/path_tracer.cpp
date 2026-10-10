@@ -1,11 +1,42 @@
 #include "path_tracer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <omp.h>
 
 namespace mfad {
+
+PathTracer::PathTracer(const PathTracerOptions& options) : options_(options) {
+    update_cached_lights();
+}
+
+void PathTracer::set_options(const PathTracerOptions& options) {
+    options_ = options;
+    update_cached_lights();
+}
+
+void PathTracer::update_cached_lights() {
+    cached_area_lights_.clear();
+    for (const auto& light_quad : options_.area_lights) {
+        if (!light_quad || !light_quad->material()) {
+            continue;
+        }
+        auto diff_light = dynamic_cast<const DiffuseLight*>(light_quad->material().get());
+        if (!diff_light) {
+            continue;
+        }
+        CachedAreaLight cal;
+        cal.quad = light_quad;
+        cal.normal = light_quad->normal();
+        cal.area = light_quad->area();
+        cal.emit = diff_light->emit();
+        cal.two_sided = diff_light->two_sided();
+        cached_area_lights_.push_back(cal);
+    }
+}
 
 Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const {
     Eigen::Vector3f L = Eigen::Vector3f::Zero();
@@ -54,8 +85,7 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
         }
 
         // Check if current material is specular (dielectric or metal)
-        bool is_specular = (dynamic_cast<const Dielectric*>(rec.material) != nullptr ||
-                            dynamic_cast<const Metal*>(rec.material) != nullptr);
+        bool is_specular = (rec.material && rec.material->is_specular());
 
         // Direct light sampling (Next Event Estimation) on diffuse surfaces
         if (options_.sample_lights && !is_specular) {
@@ -63,17 +93,9 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
             const Eigen::Vector3f albedo = srec.attenuation;
 
             // Sample Area Lights (Quads)
-            for (const auto& light_quad : options_.area_lights) {
-                if (!light_quad || !light_quad->material()) {
-                    continue;
-                }
-                auto diff_light = dynamic_cast<const DiffuseLight*>(light_quad->material().get());
-                if (!diff_light) {
-                    continue;
-                }
-
+            for (const auto& light : cached_area_lights_) {
                 // Sample random point on quad light
-                Eigen::Vector3f light_pt = light_quad->sample_point(random_float(), random_float());
+                Eigen::Vector3f light_pt = light.quad->sample_point(random_float(), random_float());
                 Eigen::Vector3f d = light_pt - rec.point;
                 float dist_sq = d.squaredNorm();
                 float dist = std::sqrt(dist_sq);
@@ -87,8 +109,8 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
                     continue;
                 }
 
-                float cos_theta_l = -light_quad->normal().dot(dir);
-                if (diff_light->two_sided()) {
+                float cos_theta_l = -light.normal.dot(dir);
+                if (light.two_sided) {
                     cos_theta_l = std::abs(cos_theta_l);
                 }
                 if (cos_theta_l <= 0.0f) {
@@ -100,9 +122,8 @@ Eigen::Vector3f PathTracer::trace_ray(const Ray& r, const Hittable& scene) const
                 HitRecord occluder;
                 if (!scene.hit(shadow_ray, 0.001f, dist - 0.001f, occluder)) {
                     float G = (cos_theta_s * cos_theta_l) / dist_sq;
-                    float area = light_quad->area();
-                    Eigen::Vector3f Le = diff_light->emit();
-                    L += (G * area / pi) * throughput.cwiseProduct(albedo).cwiseProduct(Le);
+                    L += (G * light.area / pi) *
+                         throughput.cwiseProduct(albedo).cwiseProduct(light.emit);
                 }
             }
 
@@ -171,6 +192,8 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
     const int height = buffer.height();
 
     int rows_done = 0;
+    auto t_start = std::chrono::steady_clock::now();
+    int last_reported_pct = -1;
 #pragma omp parallel for schedule(dynamic, 8)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -190,9 +213,17 @@ void PathTracer::render(const Camera& camera, const Hittable& scene, ImageBuffer
 #pragma omp critical
         {
             ++rows_done;
-            if (rows_done % (height / 10 + 1) == 0 || rows_done == height) {
-                std::cerr << "\r[PathTracer] Progress: " << (100 * rows_done / height) << "%"
-                          << std::flush;
+            int pct = 100 * rows_done / height;
+            if (pct != last_reported_pct && (pct % 5 == 0 || rows_done == height)) {
+                last_reported_pct = pct;
+                auto now = std::chrono::steady_clock::now();
+                double elapsed = std::chrono::duration<double>(now - t_start).count();
+                double total_est = (pct > 0) ? (elapsed / pct * 100.0) : 0.0;
+                double remaining = std::max(0.0, total_est - elapsed);
+                std::cerr << "\r[PathTracer] Progress: " << pct << "% (" << rows_done << "/"
+                          << height << " rows) - Elapsed: " << std::fixed << std::setprecision(1)
+                          << elapsed << "s, ETA: " << std::fixed << std::setprecision(1)
+                          << remaining << "s    " << std::flush;
             }
         }
     }

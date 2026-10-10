@@ -17,6 +17,7 @@ public:
     Eigen::Vector3f get_pixel(int x, int y) const;
 
     bool write_png(const std::string& filepath, float gamma = 2.2f, bool apply_aces = true) const;
+    bool read_png(const std::string& filepath);
 
     bool write_hdr(const std::string& filepath) const;
 
